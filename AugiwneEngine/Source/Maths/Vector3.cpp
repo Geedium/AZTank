@@ -37,13 +37,14 @@ namespace Augiwne { namespace Maths {
 		return *this;
 	}
 
-	Vector3 Vector3::Lerp(Vector3 start, Vector3 end, float amount)
+	Vector3 Vector3::Lerp(Vector3 a, Vector3 b, float t)
 	{
-		Vector3 result = start + (end - start);
-		result.x *= amount;
-		result.y *= amount;
-		result.z *= amount;
-		return result;
+		Vector3 c = b - a;
+		c.x *= t;
+		c.y *= t;
+		c.z *= t;
+
+		return a + c;
 	}
 
 	Vector3& operator+(Vector3& left, const Vector3& right) { return left.Add(right); }

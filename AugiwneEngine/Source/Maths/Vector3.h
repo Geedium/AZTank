@@ -5,6 +5,9 @@ namespace Augiwne { namespace Maths {
 		float x, y, z;
 
 		Vector3() = default;
+
+		Vector3(const float& x, const float& y) : x(x), y(y), z(0) {}
+
 		Vector3(const float& x, const float& y, const float& z);
 
 		Vector3& Add(const Vector3& other);

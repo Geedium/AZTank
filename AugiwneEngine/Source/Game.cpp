@@ -1,15 +1,20 @@
 #include <enet\enet.h>
 #include <Augiwne.h>
 
+#define _USE_REMOTE_IP 0
+#if _USE_REMOTE_IP
+#define IP "85.232.131.161"
+#else
+#define IP "127.0.0.1"
+#endif // _USE_REMOTE_IP
+
 using namespace Augiwne;
 using namespace Graphics;
 
 static int CLIENT_ID = -1;
 
-struct ThreadParams
-{
-	ENetHost* client;
-};
+
+constexpr enet_uint32	PACKET_PLAYER_UPDATE = 6;
 
 struct ClientData
 {
@@ -22,8 +27,31 @@ public:
 };
 
 std::map<int, ClientData*> client_map;
+
+struct PlayerData
+{
+public:
+	int id;
+	bool created;
+	Vector2 lastpos;
+	Vector2 pos;
+	Sprite* object;
+public:
+	PlayerData(const int id, const float x, const float y)
+		: id(id), lastpos(x, y), pos(x, y), created(false), object(nullptr)
+	{}
+};
+
+std::map<int, PlayerData*> player_map;
+
 Texture* playerTexture;
-Layer* layer;
+ENetPeer* peer;
+
+void SendUFPacket(ENetPeer* peer, const char* data)
+{
+	ENetPacket* packet = enet_packet_create(data, strlen(data) + 1, ENET_PACKET_FLAG_UNRELIABLE_FRAGMENT);
+	enet_peer_send(peer, 0, packet);
+}
 
 void SendPacket(ENetPeer* peer, const char* data)
 {
@@ -33,40 +61,81 @@ void SendPacket(ENetPeer* peer, const char* data)
 
 void ParseData(char* data)
 {
-	int data_type;
-	int id;
+	enet_uint32 data_type;
+	enet_uint32 id;
+	float x, y;
 
-	sscanf(data, "%d|%d", &data_type, &id);
+	sscanf(data, "%d|%d|%f|%f", &data_type, &id, &x, &y);
 
 	switch (data_type)
 	{
-	case 1:
-
-		break;
 	case 2:
-		std::cout << "Client map request." << std::endl;
+		std::cout << "New player create." << std::endl;
 
 		if (id != CLIENT_ID)
 		{
 			client_map[id] = new ClientData(id);
-			layer->Add(new Sprite(-16.6f, 3.4f, 1.75f, 1.75f, playerTexture));
+			player_map[id] = new PlayerData(id, x, y);
 		}
 		break;
 	case 3:
+		std::cout << "Client ID got." << std::endl;
 		CLIENT_ID = id;
-		std::cout << "Client ID set! [ " << id << " ] " << std::endl;
+		break;
+	case PACKET_PLAYER_UPDATE:
+		if (id != CLIENT_ID)
+		{
+			player_map[id]->pos = Vector2(x, y);
+		}
 		break;
 	}
 }
 
 DWORD WINAPI NetLoop(__in LPVOID lpParameter)
 {
-	ThreadParams* params = (ThreadParams*)lpParameter;
+	if (enet_initialize() != 0)
+	{
+		fprintf(stderr, "An error occurred while initializng ENet!\n");
+		exit(EXIT_FAILURE);
+	}
+	atexit(enet_deinitialize);
 
+	ENetHost* client = enet_host_create(NULL, 1, 1, 0, 0);
+
+	ENetAddress address;
+	ENetEvent event;
+
+	if (client == NULL)
+	{
+		fprintf(stderr, "An error occurred while trying to create an ENet client!\n");
+		exit(EXIT_FAILURE);
+	}
+
+	enet_address_set_host(&address, IP);
+	address.port = 4242;
+
+	peer = enet_host_connect(client, &address, 1, NULL);
+	if (peer == NULL)
+	{
+		fprintf(stderr, "No available peers for initiating an ENet connection!\n");
+		exit(EXIT_FAILURE);
+	}
+
+	if (enet_host_service(client, &event, 5000) > 0 &&
+		event.type == ENET_EVENT_TYPE_CONNECT)
+	{
+		puts("Connection to 127.0.0.1:4242 succeeded!");
+
+	}
+	else
+	{
+		enet_peer_reset(peer);
+		puts("Connection to 127.0.0.1:4242 failed!");
+	}
+	
 	while (true)
 	{
-		ENetEvent event;
-		while (enet_host_service(params->client, &event, 0) > 0)
+		while (enet_host_service(client, &event, 1000) > 0)
 		{
 			switch (event.type)
 			{
@@ -77,27 +146,51 @@ DWORD WINAPI NetLoop(__in LPVOID lpParameter)
 			}
 		}
 	}
+
+	enet_peer_disconnect(peer, 0);
+
+	while (enet_host_service(client, &event, 3000) > 0)
+	{
+		switch (event.type)
+		{
+		case ENET_EVENT_TYPE_RECEIVE:
+			enet_packet_destroy(event.packet);
+			break;
+		case ENET_EVENT_TYPE_DISCONNECT:
+			puts("Disconnection succeeded.");
+			break;
+		}
+	}
 }
 
-ENetAddress address;
-ENetPeer* peer;
-ENetHost* client;
-ENetEvent event;
+void SendPosPacket(const float x, const float y)
+{
+	std::string packet = "3|"; // packet type.
+
+	const std::string _x = std::to_string(x); // 4 bytes.
+	const std::string _y = std::to_string(y); // 4 bytes.
+
+	packet.append(_x).append("|").append(_y);
+
+	SendUFPacket(peer, packet.c_str()); // send packet containing 8 bytes.
+}
 
 class Game : public Augiwne
 {
 private:
 	Window* window;
+private:
+	Layer* foreground;
+	Layer* players;
+private:
 	Sprite* player;
-	Sprite* p2;
-	Sprite* ball;
 	Sprite* sprWolf;
 	Shader* diffuse;
 	Camera* cam;
 	Texture* wolf[4];
-	Renderable2D* players[5];
 	float timer;
 	float speed = 0.35f;
+	bool moved;
 	int sequence;
 private:
 	enum Direction
@@ -119,50 +212,13 @@ public:
 public:
 	Game()
 	{
-		if (enet_initialize() != 0)
-		{
-			fprintf(stderr, "An error occurred while initializng ENet!\n");
-			exit(EXIT_FAILURE);
-		}
-
-		client = enet_host_create(NULL, 1, 1, 0, 0);
-
-		if (client == NULL)
-		{
-			fprintf(stderr, "An error occurred while trying to create an ENet client!\n");
-			exit(EXIT_FAILURE);
-		}
-		
-		enet_address_set_host(&address, "127.0.0.1");
-		address.port = 4242;
-
-		peer = enet_host_connect(client, &address, 1, NULL);
-		if (peer == NULL)
-		{
-			fprintf(stderr, "No available peers for initiating an ENet connection!\n");
-			exit(EXIT_FAILURE);
-		}
-
-		if (enet_host_service(client, &event, 5000) > 0 &&
-			event.type == ENET_EVENT_TYPE_CONNECT)
-		{
-			puts("Connection to 127.0.0.1:4242 succeeded!");
-
-		}
-		else
-		{
-			enet_peer_reset(peer);
-			puts("Connection to 127.0.0.1:4242 failed!");
-		}
-
-		ThreadParams params;
-		params.client = client;
-
-		CreateThread(NULL, 0, NetLoop, &params, 0, NULL);
+		DWORD threadID;
+		CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)NetLoop, NULL, 0, &threadID);
+		std::cout << "Background Thread Created: " << threadID << std::endl;
 	}
 	~Game()
 	{
-		enet_deinitialize();
+
 	}
 	int GetVSync() {
 		ifstream file("cfg/graphics.ini");
@@ -195,37 +251,23 @@ public:
 		Matrix4& ortho = Matrix4::Orthographic(-16, 16, -9, 9, -1, 1);
 		cam = new Camera(ortho);
 		
-		layer = new Layer(new BatchRenderer2D(), diffuse, ortho);
+		foreground = new Layer(new BatchRenderer2D(), diffuse, ortho);
+		players = new Layer(new BatchRenderer2D(), diffuse, ortho);
 
-		const string path = "Data/textures/";
-		Texture* textures[] =
-		{
-			new Texture(path + "background.png"),
-			new Texture(path + "Paddle.png"),
-			new Texture(path + "Paddle_2.png"),
-			new Texture(path + "Ball.png"),
-			new Texture(path + "Wall.png")
-		};
-
-		playerTexture = new Texture(path + "Paddle.png");
+		playerTexture = new Texture("Data/textures/Paddle.png");
 		player = new Sprite(-16.6f, 0, 1.75f, 1.75f, playerTexture);
-
-		p2 = new Sprite(16.6f, 0, 0.24f, 2.5f, textures[2]);
-		ball = new Sprite(0, 0, 0.64f, 0.64f, textures[3]);
 	
-		layer->Add(new Sprite(-18.3f, -16, 16 * 4, 9 * 3, textures[0]));
+		Texture* wallTexture = new Texture("Data/textures/Wall.png");
 
 		for (float x = -16.0f; x < 16.0f; x += 1.0f)
 		{
 			for (float y = -9.0f; y < 9.0f; y += 1.0f)
 			{
-				layer->Add(new Sprite(x, y, 1.0f, 1.0f, textures[4]));
+				foreground->Add(new Sprite(x, y, 1.0f, 1.0f, wallTexture));
 			}
 		}
 
-		layer->Add(player);
-		layer->Add(p2);
-		layer->Add(ball);
+		foreground->Add(player);
 
 		diffuse->Enable();
 		diffuse->SetUniformMatrix4("vw_matrix", Matrix4::Orthographic(-1.1, 1.1, -1.1, 1.1, -1, 1));
@@ -251,103 +293,69 @@ public:
 		}
 		now = m_Watcher->Elapsed();
 
-		for (int i = 0; i < layer->GetRenderables().size(); i++) {
-			diffuse->Enable();
+		/*
 
-			Renderable2D* rend = layer->GetRenderables().at(i);
+			BEGIN LOCAL_PLAYER
 
-			switch (i)
+			*/
+		Vector3 pos = player->GetPosition();
+
+		if (window->IsKeyPressed(GLFW_KEY_W))
+		{
+			pos.y += speed * delta;
+		}
+		else if (window->IsKeyPressed(GLFW_KEY_S))
+		{
+			pos.y -= speed * delta;
+		}
+
+		if (window->IsKeyPressed(GLFW_KEY_A))
+		{
+			pos.x -= speed * delta;
+		}
+		else if (window->IsKeyPressed(GLFW_KEY_D))
+		{
+			pos.x += speed * delta;
+		}
+
+		player->SetPosition(pos);
+		SendPosPacket(pos.x, pos.y);
+
+		for (auto& [key, value] : player_map)
+		{
+			if (!value->created)
 			{
-			case 1:
-			{
-				Vector3 pos = rend->GetPosition();
+				value->created = true;
 
-				if (window->IsKeyPressed(GLFW_KEY_W))
-				{
-					pos.y += speed * delta;
-				}
-				else if (window->IsKeyPressed(GLFW_KEY_S))
-				{
-					pos.y -= speed * delta;
-				}
-				
-				if (window->IsKeyPressed(GLFW_KEY_A))
-				{
-					pos.x -= speed * delta;
-				}
-				else if (window->IsKeyPressed(GLFW_KEY_D))
-				{
-					pos.x += speed * delta;
-				}
+				value->object = new Sprite(-16.6f, 0.0f, 1.75f, 1.75f, playerTexture);
+				value->object->SetPosition(value->pos);
 
-				rend->SetPosition(pos);
-				break;
+				players->Add(value->object);
 			}
-			case 2:
+			else
 			{
-				Vector3 pos = rend->GetPosition();
+				Vector2 captured = value->pos;
 
-				if (window->IsKeyPressed(GLFW_KEY_UP))
+				if (value->lastpos != captured)
 				{
-					if (pos.y > 6)
-						break;
+					Vector2 subtract = captured - value->lastpos;
+					Vector2 multiply = subtract.Multiply((now - last) / speed);
+					Vector2 lerp = value->lastpos + multiply;
+					value->object->SetPosition(lerp);
 
-					pos.y += speed * delta;
-
+					value->lastpos = lerp;
 				}
-				else if (window->IsKeyPressed(GLFW_KEY_DOWN))
-				{
-					if (pos.y < -8.6)
-						break;
-
-					pos.y -= speed * delta;
-				}
-
-				rend->SetPosition(pos);
-				break;
-			}
-			case 3:
-			{
-				Vector3 pos = rend->GetPosition();
-
-				if (AABBCollision(layer->GetRenderables().at(1), rend))
-				{
-					tx = .4f;
-
-					heading = Direction::RIGHT;
-				}
-
-				if (AABBCollision(layer->GetRenderables().at(2), rend))
-				{
-					tx = - .4f;
-
-					int rg = .2f - .1f + 1;
-
-					ty = rand() % rg + .1f;
-					heading = Direction::LEFT;
-				}
-
-				// Out of range
-				if (pos.y > 4 || pos.y < 0)
-				{
-					ty = -ty / 2;
-				}
-
-			//	if (pos.x > 15.5f || pos.x < -15.5f)
-			//	{
-			//		tx = -tx / 2;
-			//	}
-
-				pos.x += tx * delta;
-				pos.y += ty * delta;
-
-				rend->SetPosition(pos);
-
-				break;
-			}
 			}
 		}
+
+		for (int i = 0; i < foreground->GetRenderables().size(); i++)
+		{
+			diffuse->Enable();
+
+			Renderable2D* rend = foreground->GetRenderables().at(i);
+		}
 	}
+
 	void Render() override
 	{
 		double x, y;
@@ -360,8 +368,9 @@ public:
 			(float)(9 - y * 18 / window->GetHeight())));
 		diffuse->Enable();
 
-		// - Layer Render
-		layer->Render();
+
+		foreground->Render();
+		players->Render();
 	}
 };
 
@@ -369,21 +378,5 @@ int main()
 {
 	Game game;
 	game.Start();
-
-	enet_peer_disconnect(peer, 0);
-
-	while (enet_host_service(client, &event, 3000) > 0)
-	{
-		switch (event.type)
-		{
-		case ENET_EVENT_TYPE_RECEIVE:
-			enet_packet_destroy(event.packet);
-			break;
-		case ENET_EVENT_TYPE_DISCONNECT:
-			puts("Disconnection succeeded.");
-			break;
-		}
-	}
-
 	return 0;
 }

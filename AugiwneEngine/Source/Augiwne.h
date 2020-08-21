@@ -31,7 +31,7 @@ namespace Augiwne {
 		{
 			float timer = 0.0f;
 			float updateTimer = 0.0f;
-			float updateTick = 1.0f / 60.0f;
+			float updateTick = 1.0f / 128.0f;
 			m_Watcher = new StopWatch();
 			unsigned int frames = 0;
 			unsigned int updates = 0;

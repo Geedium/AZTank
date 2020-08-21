@@ -56,6 +56,9 @@ namespace Augiwne { namespace Graphics {
 		void SetPosition(Vector3& pos) {
 			m_Position = pos;
 		}
+		void SetPosition(Vector2& pos) {
+			m_Position = Vector3(pos.x, pos.y, 0);
+		}
 		void SwapHorizontal(bool swap) {
 			if (swap)
 			{

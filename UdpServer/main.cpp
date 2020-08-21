@@ -1,12 +1,15 @@
 #include <iostream>
+#include <enet\enet.h>
+
+#include <string>
 #include <map>
 
-#include <enet\enet.h>
-#include "main.h"
-
+constexpr bool			SERVER_DEBUG = 0;
 constexpr enet_uint16	SERVER_PORT = 4242;
 constexpr size_t		SERVER_MAX_PEERS = 32;
 constexpr size_t		SERVER_CHANNELS = 1;
+
+constexpr enet_uint32	PACKET_PLAYER_UPDATE = 3;
 
 struct ClientData
 {
@@ -17,9 +20,18 @@ public:
 public:
 	int GetID() { return id; }
 };
-
 std::map<int, ClientData*> client_map;
 
+struct PlayerServerData
+{
+public:
+	int id;
+	float x;
+	float y;
+public:
+	PlayerServerData(int id) : id(id), x(.0f), y(.0f) {}
+};
+std::map<int, PlayerServerData*> player_map;
 
 void BroadcastPacket(ENetHost* server, const char* data)
 {
@@ -27,14 +39,28 @@ void BroadcastPacket(ENetHost* server, const char* data)
 	enet_host_broadcast(server, 0, packet);
 }
 
-void ParseData(ENetHost* server, int id, char* data)
+void BroadcastUFPacket(ENetHost* server, const char* data)
+{
+	ENetPacket* packet = enet_packet_create(data, strlen(data) + 1, ENET_PACKET_FLAG_UNRELIABLE_FRAGMENT);
+	enet_host_broadcast(server, 0, packet);
+}
+
+void SendPacket(ENetPeer* peer, const char* data)
+{
+	ENetPacket* packet = enet_packet_create(data, strlen(data) + 1, ENET_PACKET_FLAG_RELIABLE);
+	enet_peer_send(peer, 0, packet);
+}
+
+void ParseData(ENetHost* server, int id, const char* data)
 {
 	int data_type;
-	sscanf(data, "%d|", &data_type);
+	float x, y;
+	sscanf(data, "%d|%f|%f", &data_type, &x, &y);
 
 	switch (data_type)
 	{
 	case 1:
+	{
 		char msg[80];
 		sscanf(data, "%*d|%[^\n]", msg);
 
@@ -44,12 +70,22 @@ void ParseData(ENetHost* server, int id, char* data)
 
 		break;
 	}
-}
+	case PACKET_PLAYER_UPDATE:
+	{
+		player_map[id]->x = x;
+		player_map[id]->y = y;
 
-void SendPacket(ENetPeer* server, const char* data)
-{
-	ENetPacket* packet = enet_packet_create(data, strlen(data) + 1, ENET_PACKET_FLAG_RELIABLE);
-	enet_peer_send(server, 0, packet);
+		std::string packet = "6|"; // packet type.
+
+		const std::string _id = std::to_string(id); // 2-4 bytes.
+		const std::string _x = std::to_string(x); // 4 bytes.
+		const std::string _y = std::to_string(y); // 4 bytes.
+
+		packet.append(_id).append("|").append(_x).append("|").append(_y);
+
+		BroadcastPacket(server, packet.c_str()); // broadcast packet containing 12 bytes.
+	}
+	}
 }
 
 int main(int argc, char** argv)
@@ -59,7 +95,6 @@ int main(int argc, char** argv)
 		fprintf(stderr, "An error occurred while initializing ENet!\n");
 		return EXIT_FAILURE;
 	}
-
 	atexit(enet_deinitialize);
 
 	ENetAddress address;
@@ -69,7 +104,6 @@ int main(int argc, char** argv)
 	ENetEvent event;
 
 	ENetHost* server = enet_host_create(&address, SERVER_MAX_PEERS, SERVER_CHANNELS, NULL, NULL);
-
 	if (server == NULL)
 	{
 		fprintf(stderr, "An error occurred while trying to create an ENet server!\n");
@@ -80,7 +114,7 @@ int main(int argc, char** argv)
 
 	while (true)
 	{
-		while (enet_host_service(server, &event, 1000) > 0)
+		while (enet_host_service(server, &event, 150) > 0)
 		{
 			switch (event.type)
 			{
@@ -90,48 +124,43 @@ int main(int argc, char** argv)
 					event.peer->address.host,
 					event.peer->address.port);
 
-				for (auto const& x : client_map)
-				{
-					char send_data[1024] = { '\0' };
-					sprintf(send_data, "2|%d", x.first);
-					BroadcastPacket(server, send_data);
-				}
-
 				queue++;
 				client_map[queue] = new ClientData(queue);
+				player_map[queue] = new PlayerServerData(queue);
 				event.peer->data = client_map[queue];
 
 				char data_to_send[126];
 				sprintf(data_to_send, "3|%d", queue);
 				SendPacket(event.peer, data_to_send);
 
+				for (auto const& [key, value] : client_map)
+				{
+					char send_data[1024] = { '\0' };
+					sprintf(send_data, "2|%d|%f|%f", key, player_map[key]->x, player_map[key]->y);
+					BroadcastPacket(server, send_data);
+				}
+
 				break;
 			}
 			case ENET_EVENT_TYPE_RECEIVE:
 			{
-				printf("A packet of length %u containing %s was received from %x:%u, %u.\n",
-					event.packet->dataLength,
-					event.packet->data,
-					event.peer->address.host,
-					event.peer->address.port,
-					event.channelID);
+				if (SERVER_DEBUG)
+				{
+					printf("A packet of length %u containing %s was received from %x:%u, %u.\n",
+						event.packet->dataLength,
+						event.packet->data,
+						event.peer->address.host,
+						event.peer->address.port,
+						event.channelID);
+				}
 
 				ParseData(server, static_cast<ClientData*>(event.peer->data)->GetID(), (char*)event.packet->data);
 				enet_packet_destroy(event.packet);
 				break;
 			}
 			case ENET_EVENT_TYPE_DISCONNECT:
-				printf("%x:%u disconnected.\n",
-					event.peer->address.host,
-					event.peer->address.port);
-
-				char disconnected_data[126] = { '\0' };
-				sprintf(disconnected_data, "4|%d",
-					static_cast<ClientData*>(event.peer->data)->GetID());
-				BroadcastPacket(server, disconnected_data);
-
+				printf("%x:%u disconnected.\n", event.peer->address.host, event.peer->address.port);
 				event.peer->data = NULL;
-				break;
 			}
 		}
 	}
