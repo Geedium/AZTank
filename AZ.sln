@@ -7,6 +7,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Client", "AugiwneEngine\Aug
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Server", "UdpServer\UdpServer.vcxproj", "{7C11F74F-5EBC-4BA1-B94E-263C103EF2FE}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Shared", "Shared\Shared.vcxproj", "{8A8A8F05-DAB9-439A-9BDD-70AA73A28C9F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -37,6 +39,16 @@ Global
 		{7C11F74F-5EBC-4BA1-B94E-263C103EF2FE}.Release|x64.Build.0 = Release|x64
 		{7C11F74F-5EBC-4BA1-B94E-263C103EF2FE}.Release|x86.ActiveCfg = Release|Win32
 		{7C11F74F-5EBC-4BA1-B94E-263C103EF2FE}.Release|x86.Build.0 = Release|Win32
+		{8A8A8F05-DAB9-439A-9BDD-70AA73A28C9F}.Debug|Any CPU.ActiveCfg = Debug|Win32
+		{8A8A8F05-DAB9-439A-9BDD-70AA73A28C9F}.Debug|x64.ActiveCfg = Debug|x64
+		{8A8A8F05-DAB9-439A-9BDD-70AA73A28C9F}.Debug|x64.Build.0 = Debug|x64
+		{8A8A8F05-DAB9-439A-9BDD-70AA73A28C9F}.Debug|x86.ActiveCfg = Debug|Win32
+		{8A8A8F05-DAB9-439A-9BDD-70AA73A28C9F}.Debug|x86.Build.0 = Debug|Win32
+		{8A8A8F05-DAB9-439A-9BDD-70AA73A28C9F}.Release|Any CPU.ActiveCfg = Release|Win32
+		{8A8A8F05-DAB9-439A-9BDD-70AA73A28C9F}.Release|x64.ActiveCfg = Release|x64
+		{8A8A8F05-DAB9-439A-9BDD-70AA73A28C9F}.Release|x64.Build.0 = Release|x64
+		{8A8A8F05-DAB9-439A-9BDD-70AA73A28C9F}.Release|x86.ActiveCfg = Release|Win32
+		{8A8A8F05-DAB9-439A-9BDD-70AA73A28C9F}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

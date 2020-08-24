@@ -1,5 +1,4 @@
-#include <iostream>
-#include <enet\enet.h>
+#include "stdafx.h"
 
 #include <string>
 #include <map>
@@ -83,7 +82,7 @@ void ParseData(ENetHost* server, int id, const char* data)
 
 		packet.append(_id).append("|").append(_x).append("|").append(_y);
 
-		BroadcastPacket(server, packet.c_str()); // broadcast packet containing 12 bytes.
+		BroadcastUFPacket(server, packet.c_str()); // broadcast packet containing 12 bytes.
 	}
 	}
 }
@@ -135,7 +134,7 @@ int main(int argc, char** argv)
 
 				for (auto const& [key, value] : client_map)
 				{
-					char send_data[1024] = { '\0' };
+					char send_data[512] = { '\0' };
 					sprintf(send_data, "2|%d|%f|%f", key, player_map[key]->x, player_map[key]->y);
 					BroadcastPacket(server, send_data);
 				}

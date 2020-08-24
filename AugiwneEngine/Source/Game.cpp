@@ -1,18 +1,11 @@
 #include <enet\enet.h>
 #include <Augiwne.h>
 
-#define _USE_REMOTE_IP 0
-#if _USE_REMOTE_IP
-#define IP "85.232.131.161"
-#else
-#define IP "127.0.0.1"
-#endif // _USE_REMOTE_IP
-
 using namespace Augiwne;
 using namespace Graphics;
 
 static int CLIENT_ID = -1;
-
+static std::string SERVER_ADDR;
 
 constexpr enet_uint32	PACKET_PLAYER_UPDATE = 6;
 
@@ -111,7 +104,7 @@ DWORD WINAPI NetLoop(__in LPVOID lpParameter)
 		exit(EXIT_FAILURE);
 	}
 
-	enet_address_set_host(&address, IP);
+	enet_address_set_host(&address, SERVER_ADDR.c_str() );
 	address.port = 4242;
 
 	peer = enet_host_connect(client, &address, 1, NULL);
@@ -124,13 +117,12 @@ DWORD WINAPI NetLoop(__in LPVOID lpParameter)
 	if (enet_host_service(client, &event, 5000) > 0 &&
 		event.type == ENET_EVENT_TYPE_CONNECT)
 	{
-		puts("Connection to 127.0.0.1:4242 succeeded!");
-
+		puts("Connection to [IP]:4242 succeeded!");
 	}
 	else
 	{
 		enet_peer_reset(peer);
-		puts("Connection to 127.0.0.1:4242 failed!");
+		puts("Connection to [IP]:4242 failed!");
 	}
 	
 	while (true)
@@ -184,13 +176,18 @@ private:
 	Layer* players;
 private:
 	Sprite* player;
+	Sprite* missle;
 	Sprite* sprWolf;
 	Shader* diffuse;
+	Shader* playerShader;
+	Shader* rot;
 	Camera* cam;
-	Texture* wolf[4];
+	Texture* missleTexture;
 	float timer;
 	float speed = 0.35f;
+	bool darkMode;
 	bool moved;
+	std::string addr;
 	int sequence;
 private:
 	enum Direction
@@ -221,7 +218,7 @@ public:
 
 	}
 	int GetVSync() {
-		ifstream file("cfg/graphics.ini");
+		ifstream file("settings.ini");
 		int vsyncInterval = 0;
 
 		if (file.is_open())
@@ -239,6 +236,14 @@ public:
 				{
 					vsyncInterval = stoi(value);
 				}
+				else if (name == "ip")
+				{
+					addr = value;
+				}
+				else if (name == "dark_mode")
+				{
+					darkMode = value == "true" ? true : false;
+				}
 			}
 			file.close();
 		}
@@ -247,12 +252,19 @@ public:
 	void Init() override
 	{
 		window = CreateRenderWindow("AZ", 960, 540, GetVSync());
-		diffuse = new Shader("Data/Vertex.shader", "Data/Frag.shader");
+		diffuse = new Shader("Data/Vertex.shader", darkMode ? "Data/FragDark.shader" : "Data/Frag.shader");
+		playerShader = diffuse;
+
+		rot = new Shader("Data/Vertex.shader", "Data/Frag.shader");
+
 		Matrix4& ortho = Matrix4::Orthographic(-16, 16, -9, 9, -1, 1);
 		cam = new Camera(ortho);
-		
+
+		missleTexture = new Texture("Data/textures/Missle.png");
+		missle = new Sprite(-12.3f, 0.0f, 0.85f, 1.0f, missleTexture);
+
 		foreground = new Layer(new BatchRenderer2D(), diffuse, ortho);
-		players = new Layer(new BatchRenderer2D(), diffuse, ortho);
+		players = new Layer(new BatchRenderer2D(), rot, ortho);
 
 		playerTexture = new Texture("Data/textures/Paddle.png");
 		player = new Sprite(-16.6f, 0, 1.75f, 1.75f, playerTexture);
@@ -269,6 +281,8 @@ public:
 
 		foreground->Add(player);
 
+		players->Add(missle);
+
 		diffuse->Enable();
 		diffuse->SetUniformMatrix4("vw_matrix", Matrix4::Orthographic(-1.1, 1.1, -1.1, 1.1, -1, 1));
 	}
@@ -283,6 +297,7 @@ public:
 	float ty = 0;
 	float brk = 0;
 	float brk2 = 0;
+	float angle = 0;
 
 	void Update() override
 	{
@@ -292,6 +307,12 @@ public:
 			last = now;
 		}
 		now = m_Watcher->Elapsed();
+
+		angle++;
+		if (angle > 360)
+			angle = 0;
+
+		//rot->SetUniformMatrix4("ml_matrix", Matrix4::Rotate(angle, Vector3(1, 1, 1)));
 
 		/*
 
@@ -366,10 +387,14 @@ public:
 		diffuse->SetUniform2f("light_pos",
 			Vector2((float)(x * 32 / window->GetWidth() - 16),
 			(float)(9 - y * 18 / window->GetHeight())));
+		;
+		diffuse->SetUniformMatrix4("ml_matrix", Matrix4::Rotate(30, Vector3(0, 0, 1)));
 		diffuse->Enable();
 
-
 		foreground->Render();
+
+		rot->Enable();
+
 		players->Render();
 	}
 };
