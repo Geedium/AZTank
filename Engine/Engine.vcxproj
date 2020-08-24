@@ -74,7 +74,7 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{08BA52D5-0F45-4746-ABF9-3E6056D4028A}</ProjectGuid>
-    <RootNamespace>AugiwneEngine</RootNamespace>
+    <RootNamespace>Engine</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <ProjectName>Client</ProjectName>
   </PropertyGroup>
