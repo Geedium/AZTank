@@ -113,7 +113,7 @@ int main(int argc, char** argv)
 
 	while (true)
 	{
-		while (enet_host_service(server, &event, 150) > 0)
+		while (enet_host_service(server, &event, 1000) > 0)
 		{
 			switch (event.type)
 			{

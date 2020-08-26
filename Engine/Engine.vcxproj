@@ -19,7 +19,10 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Source\Entities\Bullet.h" />
+    <ClInclude Include="Source\Entities\Entity.h" />
     <ClInclude Include="Host.h" />
+    <ClInclude Include="Source\Graphics\Quaternion.h" />
     <ClInclude Include="Source\Network\Client.h" />
     <ClInclude Include="Source\Graphics\Camera.h" />
     <ClInclude Include="Source\Augiwne.h" />
@@ -50,7 +53,9 @@
     <ClInclude Include="Source\Utilities\Timestep.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Source\Entities\Bullet.cpp" />
     <ClCompile Include="Host.cpp" />
+    <ClCompile Include="Source\Graphics\Quaternion.cpp" />
     <ClCompile Include="Source\Network\Client.cpp" />
     <ClCompile Include="Source\Graphics\Camera.cpp" />
     <ClCompile Include="Source\Game.cpp" />

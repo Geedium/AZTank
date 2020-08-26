@@ -1,4 +1,5 @@
 #include <enet\enet.h>
+#include <Graphics/Quaternion.h>
 #include <Augiwne.h>
 
 using namespace Augiwne;
@@ -117,12 +118,12 @@ DWORD WINAPI NetLoop(__in LPVOID lpParameter)
 	if (enet_host_service(client, &event, 5000) > 0 &&
 		event.type == ENET_EVENT_TYPE_CONNECT)
 	{
-		puts("Connection to [IP]:4242 succeeded!");
+		std::cout << "Connection to " << SERVER_ADDR << ":4242 succeeded!" << std::endl;
 	}
 	else
 	{
+		std::cout << "Connection to " << SERVER_ADDR << ":4242 failed!" << std::endl;
 		enet_peer_reset(peer);
-		puts("Connection to [IP]:4242 failed!");
 	}
 	
 	while (true)
@@ -187,7 +188,6 @@ private:
 	float speed = 0.35f;
 	bool darkMode;
 	bool moved;
-	std::string addr;
 	int sequence;
 private:
 	enum Direction
@@ -238,7 +238,7 @@ public:
 				}
 				else if (name == "ip")
 				{
-					addr = value;
+					SERVER_ADDR = value;
 				}
 				else if (name == "dark_mode")
 				{
@@ -388,13 +388,24 @@ public:
 			Vector2((float)(x * 32 / window->GetWidth() - 16),
 			(float)(9 - y * 18 / window->GetHeight())));
 		;
-		diffuse->SetUniformMatrix4("ml_matrix", Matrix4::Rotate(30, Vector3(0, 0, 1)));
 		diffuse->Enable();
-
-		foreground->Render();
 
 		rot->Enable();
 
+		Quaternion quat = Quaternion(Vector3(0, 0, 1), ToRadians(x) );
+
+		Matrix4 a = Matrix4::Translate(Vector3(0.5f, 0.5f));
+
+		Matrix4 b = quat.toMatrix(a);
+
+		Matrix4 c = Matrix4::Translate(Vector3(-0.5f, -0.5f));
+		c.Multiply(b);
+
+		rot->SetUniformMatrix4("ml_matrix", c);
+
+		rot->Enable();
+
+		foreground->Render();
 		players->Render();
 	}
 };

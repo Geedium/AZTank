@@ -82,6 +82,13 @@ namespace Augiwne { namespace Graphics {
 			m_Color = a << 24 | b << 16 | g << 8 | r;
 		}
 
+		bool AABB(const Renderable2D& other) const
+		{
+			const bool x = m_Position.x + m_Size.x >= other.GetPosition().x && other.GetPosition().x + other.GetSize().x >= m_Position.x;
+			const bool y = m_Position.y + m_Size.y >= other.GetPosition().y && other.GetPosition().y + other.GetSize().y >= m_Position.y;
+			return x && y;
+		}
+
 		inline const Maths::Vector2& GetSize() const { return m_Size; }
 		inline const Maths::Vector3& GetPosition() const { return m_Position; }
 		inline const unsigned int GetColor() const { return m_Color; }

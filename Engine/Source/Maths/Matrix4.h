@@ -28,11 +28,11 @@ namespace Augiwne { namespace Maths {
 		static Matrix4 Translate(const Vector3& translation);
 		static Matrix4 Rotate(float angle, const Vector3& axis);
 		static Matrix4 Scale(const Vector3& scale);
+
 		Matrix4& Invert();
 		Matrix4& Multiply(const Matrix4& other);
 		Vector3 Multiply(const Vector3& other) const;
 		Vector4 Multiply(const Vector4& other) const;
-
 
 		friend Matrix4 operator*(Matrix4 left, const Matrix4& right);
 		friend Vector3 operator*(const Matrix4& left, const Vector3& right);
