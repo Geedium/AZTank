@@ -1,3 +1,8 @@
+#include <OpenAL\al.h>
+#include <OpenAL\alc.h>
+
+#include <vorbis/vorbisfile.h>
+
 #include <enet\enet.h>
 #include <Graphics/Quaternion.h>
 #include <Augiwne.h>
@@ -9,6 +14,68 @@ static int CLIENT_ID = -1;
 static std::string SERVER_ADDR;
 
 constexpr enet_uint32	PACKET_PLAYER_UPDATE = 6;
+
+#define READ_BUFFER_SIZE 4096
+
+static int endian = 2;
+
+int load_ogg(const char* file_path, std::vector<char>* buffer, int* num_channels, int* freq)
+{
+	char readbuf[READ_BUFFER_SIZE];
+	FILE* fp;
+#ifdef __APPLE__
+	char bundle_path[512];
+	strcpy(bundle_path, file_path);
+	char* p = bundle_path;
+	while (*p != '.' && *p != 0)
+		p++;
+	*p = 0;
+	NSString* path = [[NSBundle mainBundle]pathForResource:[NSString stringWithCString : bundle_path encoding : NSUTF8StringEncoding] ofType : @"ogg"];
+	strcpy(bundle_path, path.UTF8String);
+	fp = fopen(bundle_path, "rb");
+#else
+	fp = fopen(file_path, "rb");
+#endif
+	if (fp == NULL)
+	{
+		std::cout << "Load ogg failed - File not found." << std::endl;
+		return 1;
+	}
+	if (endian == 2)
+	{
+		uint32_t num = 0x01010000;
+		uint8_t* p = (uint8_t*)&num;
+		endian = *p;
+	}
+	OggVorbis_File ogg_file;
+	vorbis_info* info;
+	ov_open(fp, &ogg_file, NULL, 0);
+	info = ov_info(&ogg_file, -1);
+	*num_channels = info->channels;
+	*freq = (int)info->rate;
+	int bit_stream;
+	int bytes;
+	while (1)
+	{
+		bytes = ov_read(&ogg_file, readbuf, READ_BUFFER_SIZE, endian, 2, 1, &bit_stream);
+		if (bytes > 0)
+		{
+			int starting_index = buffer->size();
+			buffer->resize(buffer->size() + bytes);
+			memcpy(&(*buffer)[starting_index], readbuf, bytes);
+		}
+		else
+		{
+			if (bytes < 0)
+			{
+				std::cout << "read error." << std::endl;
+			}
+			break;
+		}
+	}
+	ov_clear(&ogg_file);
+	return 0;
+}
 
 struct ClientData
 {
@@ -89,7 +156,7 @@ DWORD WINAPI NetLoop(__in LPVOID lpParameter)
 {
 	if (enet_initialize() != 0)
 	{
-		fprintf(stderr, "An error occurred while initializng ENet!\n");
+		//fprintf(stderr, "An error occurred while initializng ENet!\n");
 		exit(EXIT_FAILURE);
 	}
 	atexit(enet_deinitialize);
@@ -101,7 +168,7 @@ DWORD WINAPI NetLoop(__in LPVOID lpParameter)
 
 	if (client == NULL)
 	{
-		fprintf(stderr, "An error occurred while trying to create an ENet client!\n");
+		//fprintf(stderr, "An error occurred while trying to create an ENet client!\n");
 		exit(EXIT_FAILURE);
 	}
 
@@ -111,7 +178,7 @@ DWORD WINAPI NetLoop(__in LPVOID lpParameter)
 	peer = enet_host_connect(client, &address, 1, NULL);
 	if (peer == NULL)
 	{
-		fprintf(stderr, "No available peers for initiating an ENet connection!\n");
+		// fprintf(stderr, "No available peers for initiating an ENet connection!\n");
 		exit(EXIT_FAILURE);
 	}
 
@@ -176,6 +243,8 @@ private:
 	Layer* foreground;
 	Layer* players;
 private:
+	BatchRenderer2D* renderer;
+private:
 	Sprite* player;
 	Sprite* missle;
 	Sprite* sprWolf;
@@ -189,6 +258,11 @@ private:
 	bool darkMode;
 	bool moved;
 	int sequence;
+private: // Sound manager
+	ALCcontext* context;
+	ALCdevice* device;
+	ALuint source;
+	ALuint buffer;
 private:
 	enum Direction
 	{
@@ -209,13 +283,52 @@ public:
 public:
 	Game()
 	{
+		device = alcOpenDevice(NULL);
+		if (!device)
+		{
+			std::cout << "FAILED TO CREATE AUDIO DEVICE!" << std::endl;
+		}
+
+		context = alcCreateContext(device, NULL);
+		if (!alcMakeContextCurrent(context))
+		{
+			std::cout << "Failed to make context current." << std::endl;
+		}
+
+		alGenSources(1, &source);
+		//alListener3f(AL_POSITION, 0.0f, 0.0f, 0.0f);
+		alSource3f(source, AL_POSITION, 0, 0, 0);
+		alSource3f(source, AL_VELOCITY, 0, 0, 0);
+		alGenBuffers((ALuint)1, &buffer);
+		std::vector<char> oggbuffer;
+		int num_channels;
+		int freq;
+		if (load_ogg("Data/audio/shoot.ogg", &oggbuffer, &num_channels, &freq))
+		{
+			std::cout << "Failed to load ogg data." << std::endl;
+		}
+
+		ALenum format;
+		if (num_channels == 1)
+			format = AL_FORMAT_MONO16;
+		else
+			format = AL_FORMAT_STEREO16;
+		printf("oggbuffer size=%d, freq=%d\n", (int)oggbuffer.size(), freq);
+		alBufferData(buffer, format, &oggbuffer[0], (ALsizei)oggbuffer.size(), freq);
+		alSourcei(source, AL_BUFFER, buffer);
+
 		DWORD threadID;
 		CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)NetLoop, NULL, 0, &threadID);
-		std::cout << "Background Thread Created: " << threadID << std::endl;
+		std::cout << "Network Thread Created: " << threadID << std::endl;
 	}
 	~Game()
 	{
-
+		alDeleteSources(1, &source);
+		alDeleteBuffers(1, &buffer);
+		device = alcGetContextsDevice(context);
+		alcMakeContextCurrent(NULL);
+		alcDestroyContext(context);
+		alcCloseDevice(device);
 	}
 	int GetVSync() {
 		ifstream file("settings.ini");
@@ -261,7 +374,10 @@ public:
 		cam = new Camera(ortho);
 
 		missleTexture = new Texture("Data/textures/Missle.png");
-		missle = new Sprite(-12.3f, 0.0f, 0.85f, 1.0f, missleTexture);
+		
+		missle = new Sprite(-6.0f, 0.0f, 0.8f, 1.0f, missleTexture);
+
+		renderer = new BatchRenderer2D();
 
 		foreground = new Layer(new BatchRenderer2D(), diffuse, ortho);
 		players = new Layer(new BatchRenderer2D(), rot, ortho);
@@ -275,16 +391,25 @@ public:
 		{
 			for (float y = -9.0f; y < 9.0f; y += 1.0f)
 			{
-				foreground->Add(new Sprite(x, y, 1.0f, 1.0f, wallTexture));
+				// Bottom Left to Right
+				if (
+					(y == -9.0f) ||
+					(y == 8.0f) ||
+					(x == -16.0f) ||
+					(x == 15.0f)
+					)
+				{
+					foreground->Add(new Sprite(x, y, 1.0f, 1.0f, wallTexture));
+				}
+				else {
+					auto i = (int)(x) % 2 == 0;
+					auto j = (int)(y) % 5 != 1;
+					foreground->Add(new Sprite(i, j, 1.0f, 1.0f, wallTexture));
+				}
 			}
 		}
 
 		foreground->Add(player);
-
-		players->Add(missle);
-
-		diffuse->Enable();
-		diffuse->SetUniformMatrix4("vw_matrix", Matrix4::Orthographic(-1.1, 1.1, -1.1, 1.1, -1, 1));
 	}
 	float now, last;
 	float delta;
@@ -298,6 +423,7 @@ public:
 	float brk = 0;
 	float brk2 = 0;
 	float angle = 0;
+	float nextShoot = 0;
 
 	void Update() override
 	{
@@ -337,6 +463,12 @@ public:
 		else if (window->IsKeyPressed(GLFW_KEY_D))
 		{
 			pos.x += speed * delta;
+		}
+		else if (window->IsKeyPressed(GLFW_KEY_SPACE) && now > nextShoot)
+		{
+			alSourceRewind(source);
+			alSourcePlay(source);
+			nextShoot = now + 0.58888795f;
 		}
 
 		player->SetPosition(pos);
@@ -390,23 +522,18 @@ public:
 		;
 		diffuse->Enable();
 
-		rot->Enable();
-
-		Quaternion quat = Quaternion(Vector3(0, 0, 1), ToRadians(x) );
-
-		Matrix4 a = Matrix4::Translate(Vector3(0.5f, 0.5f));
-
-		Matrix4 b = quat.toMatrix(a);
-
-		Matrix4 c = Matrix4::Translate(Vector3(-0.5f, -0.5f));
-		c.Multiply(b);
-
-		rot->SetUniformMatrix4("ml_matrix", c);
-
-		rot->Enable();
-
 		foreground->Render();
 		players->Render();
+
+		rot->Enable();
+		Matrix4 mat4 = Matrix4::Rotate(angle, Vector3(0, 0, 1));
+		rot->SetUniformMatrix4("ml_matrix", mat4);
+		rot->Enable();
+
+		renderer->Begin();
+		renderer->Submit(missle);
+		renderer->End();
+		renderer->Flush();
 	}
 };
 
