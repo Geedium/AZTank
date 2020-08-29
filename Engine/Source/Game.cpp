@@ -242,6 +242,7 @@ private:
 private:
 	Layer* foreground;
 	Layer* players;
+	Layer* bullets;
 private:
 	BatchRenderer2D* renderer;
 private:
@@ -252,6 +253,7 @@ private:
 	Shader* playerShader;
 	Shader* rot;
 	Camera* cam;
+	Texture* bulletTx;
 	Texture* missleTexture;
 	float timer;
 	float speed = 0.35f;
@@ -368,22 +370,22 @@ public:
 		diffuse = new Shader("Data/Vertex.shader", darkMode ? "Data/FragDark.shader" : "Data/Frag.shader");
 		playerShader = diffuse;
 
-		rot = new Shader("Data/Vertex.shader", "Data/Frag.shader");
-
 		Matrix4& ortho = Matrix4::Orthographic(-16, 16, -9, 9, -1, 1);
-		cam = new Camera(ortho);
-
+	
+		// Missle
+		renderer = new BatchRenderer2D();
+		rot = new Shader("Data/Vertex.shader", "Data/Frag.shader");
 		missleTexture = new Texture("Data/textures/Missle.png");
-		
 		missle = new Sprite(-6.0f, 0.0f, 0.8f, 1.0f, missleTexture);
 
-		renderer = new BatchRenderer2D();
+		bulletTx = new Texture("Data/textures/Bullet.png");
 
 		foreground = new Layer(new BatchRenderer2D(), diffuse, ortho);
-		players = new Layer(new BatchRenderer2D(), rot, ortho);
+		players = new Layer(new BatchRenderer2D(), diffuse, ortho);
+		bullets = new Layer(new BatchRenderer2D(), diffuse, ortho);
 
 		playerTexture = new Texture("Data/textures/Paddle.png");
-		player = new Sprite(-16.6f, 0, 1.75f, 1.75f, playerTexture);
+		player = new Sprite(-10.6f, 0, 1.75f, 1.75f, playerTexture);
 	
 		Texture* wallTexture = new Texture("Data/textures/Wall.png");
 
@@ -409,7 +411,7 @@ public:
 			}
 		}
 
-		foreground->Add(player);
+		players->Add(player);
 	}
 	float now, last;
 	float delta;
@@ -438,6 +440,14 @@ public:
 		if (angle > 360)
 			angle = 0;
 
+		for (Renderable2D* bullet : bullets->GetRenderables() )
+		{
+			Vector3 pos = bullet->GetPosition();
+			pos.y += speed * delta;
+
+			bullet->SetPosition(pos);
+		}
+
 		//rot->SetUniformMatrix4("ml_matrix", Matrix4::Rotate(angle, Vector3(1, 1, 1)));
 
 		/*
@@ -446,32 +456,51 @@ public:
 
 			*/
 		Vector3 pos = player->GetPosition();
+		Vector3 old = pos;
+		bool isColidiing = false;
 
-		if (window->IsKeyPressed(GLFW_KEY_W))
+		if (window->IsKeyPressed(GLFW_KEY_W) && !isColidiing)
 		{
 			pos.y += speed * delta;
 		}
-		else if (window->IsKeyPressed(GLFW_KEY_S))
+		else if (window->IsKeyPressed(GLFW_KEY_S) && !isColidiing)
 		{
 			pos.y -= speed * delta;
 		}
 
-		if (window->IsKeyPressed(GLFW_KEY_A))
+		if (window->IsKeyPressed(GLFW_KEY_A) && !isColidiing)
 		{
 			pos.x -= speed * delta;
 		}
-		else if (window->IsKeyPressed(GLFW_KEY_D))
+		else if (window->IsKeyPressed(GLFW_KEY_D) && !isColidiing)
 		{
 			pos.x += speed * delta;
 		}
-		else if (window->IsKeyPressed(GLFW_KEY_SPACE) && now > nextShoot)
+		
+		if (window->IsKeyPressed(GLFW_KEY_SPACE) && now > nextShoot)
 		{
 			alSourceRewind(source);
 			alSourcePlay(source);
 			nextShoot = now + 0.58888795f;
+
+			bullets->Add(new Sprite(pos.x, pos.y, 0.32f, 0.32f, bulletTx));
 		}
 
 		player->SetPosition(pos);
+
+		for (Renderable2D* obj : foreground->GetRenderables())
+		{
+			if (AABBCollision(obj, player))
+			{
+				isColidiing = true;
+			}
+		}
+
+		if (isColidiing)
+		{
+			player->SetPosition(old);
+		}
+
 		SendPosPacket(pos.x, pos.y);
 
 		for (auto& [key, value] : player_map)
@@ -520,15 +549,18 @@ public:
 			Vector2((float)(x * 32 / window->GetWidth() - 16),
 			(float)(9 - y * 18 / window->GetHeight())));
 		;
-		diffuse->Enable();
 
+		// - Layers
+		bullets->Render();
 		foreground->Render();
 		players->Render();
 
+		// - Single object
 		rot->Enable();
+
 		Matrix4 mat4 = Matrix4::Rotate(angle, Vector3(0, 0, 1));
+		rot->SetUniformMatrix4("pr_matrix", Matrix4::Orthographic(-16.0f, 16.0f, -9.0f, 9.0f, -1.0f, 1.0f));
 		rot->SetUniformMatrix4("ml_matrix", mat4);
-		rot->Enable();
 
 		renderer->Begin();
 		renderer->Submit(missle);
