@@ -2,6 +2,7 @@
 
 #include <string>
 #include <map>
+#include <stack>
 
 constexpr bool			SERVER_DEBUG = 0;
 constexpr enet_uint16	SERVER_PORT = 4242;
@@ -9,6 +10,7 @@ constexpr size_t		SERVER_MAX_PEERS = 32;
 constexpr size_t		SERVER_CHANNELS = 1;
 
 constexpr enet_uint32	PACKET_PLAYER_UPDATE = 3;
+constexpr enet_uint32	PACKET_SPAWN_BULLET = 10;
 
 struct ClientData
 {
@@ -19,7 +21,19 @@ public:
 public:
 	int GetID() { return id; }
 };
+
+struct Bullet
+{
+public:
+	float x;
+	float y;
+public:
+	Bullet() : x(0), y(0) {}
+	Bullet(const float x, const float y) : x(x), y(y) {}
+};
+
 std::map<int, ClientData*> client_map;
+std::stack<Bullet> bullet_map;
 
 struct PlayerServerData
 {
@@ -83,7 +97,25 @@ void ParseData(ENetHost* server, int id, const char* data)
 		packet.append(_id).append("|").append(_x).append("|").append(_y);
 
 		BroadcastUFPacket(server, packet.c_str()); // broadcast packet containing 12 bytes.
+		
+		break;
 	}
+	case PACKET_SPAWN_BULLET:
+
+		bullet_map.push(Bullet(x, y));
+		std::cout << "Got new bullet!" << std::endl;
+
+		std::string packet = "4|";
+
+		const std::string _id = std::to_string(id);
+		const std::string _x = std::to_string(x);
+		const std::string _y = std::to_string(y);
+	
+		packet.append(_id).append("|").append(_x).append("|").append(_y);
+
+		BroadcastPacket(server, packet.c_str());
+
+		break;
 	}
 }
 

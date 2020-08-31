@@ -6,6 +6,7 @@
 *.pdb
 *.txt
 *.log
+*.lib
 *.tlog
 
 *.Build.CppClean

@@ -120,6 +120,9 @@ void SendPacket(ENetPeer* peer, const char* data)
 	enet_peer_send(peer, 0, packet);
 }
 
+Layer* bullets;
+Texture* bulletTx;
+
 void ParseData(char* data)
 {
 	enet_uint32 data_type;
@@ -148,6 +151,10 @@ void ParseData(char* data)
 		{
 			player_map[id]->pos = Vector2(x, y);
 		}
+		break;
+	case 4U:
+		std::cout << "Spawning a bullet!" << std::endl;
+		bullets->Add(new Sprite(x, y, 0.32f, 0.32f, bulletTx));
 		break;
 	}
 }
@@ -235,6 +242,18 @@ void SendPosPacket(const float x, const float y)
 	SendUFPacket(peer, packet.c_str()); // send packet containing 8 bytes.
 }
 
+void SendBulletPos(const float x, const float y)
+{
+	std::string packet = "10|";
+
+	const std::string _x = std::to_string(x); // 4 bytes.
+	const std::string _y = std::to_string(y); // 4 bytes.
+
+	packet.append(_x).append("|").append(_y);
+
+	SendPacket(peer, packet.c_str());
+}
+
 class Game : public Augiwne
 {
 private:
@@ -242,7 +261,6 @@ private:
 private:
 	Layer* foreground;
 	Layer* players;
-	Layer* bullets;
 private:
 	BatchRenderer2D* renderer;
 private:
@@ -253,7 +271,6 @@ private:
 	Shader* playerShader;
 	Shader* rot;
 	Camera* cam;
-	Texture* bulletTx;
 	Texture* missleTexture;
 	float timer;
 	float speed = 0.35f;
@@ -410,8 +427,6 @@ public:
 				}
 			}
 		}
-
-		players->Add(player);
 	}
 	float now, last;
 	float delta;
@@ -435,10 +450,6 @@ public:
 			last = now;
 		}
 		now = m_Watcher->Elapsed();
-
-		angle++;
-		if (angle > 360)
-			angle = 0;
 
 		for (Renderable2D* bullet : bullets->GetRenderables() )
 		{
@@ -476,6 +487,15 @@ public:
 		{
 			pos.x += speed * delta;
 		}
+
+		if (window->IsKeyPressed(GLFW_KEY_Q))
+		{
+			angle -= speed * 5.0f;
+		}
+		else if (window->IsKeyPressed(GLFW_KEY_E))
+		{
+			angle += speed * 5.0f;
+		}
 		
 		if (window->IsKeyPressed(GLFW_KEY_SPACE) && now > nextShoot)
 		{
@@ -483,7 +503,7 @@ public:
 			alSourcePlay(source);
 			nextShoot = now + 0.58888795f;
 
-			bullets->Add(new Sprite(pos.x, pos.y, 0.32f, 0.32f, bulletTx));
+			SendBulletPos(pos.x, pos.y);
 		}
 
 		player->SetPosition(pos);
@@ -555,16 +575,38 @@ public:
 		foreground->Render();
 		players->Render();
 
-		// - Single object
 		rot->Enable();
-
-		Matrix4 mat4 = Matrix4::Rotate(angle, Vector3(0, 0, 1));
 		rot->SetUniformMatrix4("pr_matrix", Matrix4::Orthographic(-16.0f, 16.0f, -9.0f, 9.0f, -1.0f, 1.0f));
-		rot->SetUniformMatrix4("ml_matrix", mat4);
+		rot->SetUniformMatrix4("vw_matrix", Matrix4::Identity());
+		rot->SetUniformMatrix4("ml_matrix", Matrix4::Identity());
 
 		renderer->Begin();
 		renderer->Submit(missle);
 		renderer->End();
+		renderer->Flush();
+
+		Matrix4 model = Matrix4::Identity();
+
+		model *= Matrix4::Translate(Vector3(
+			-player->position.x,
+			-player->position.y,
+			-player->position.z
+		));
+
+		model *= Matrix4::Rotate(angle, Vector3(0, 0, 1));
+
+		model *= Matrix4::Translate(Vector3(
+			player->position.x,
+			player->position.y,
+			player->position.z
+		));
+
+		rot->SetUniformMatrix4("ml_matrix", model);
+
+		renderer->Begin();
+		renderer->Submit(player);
+		renderer->End();
+
 		renderer->Flush();
 	}
 };
