@@ -1,9 +1,11 @@
 AZ Tank Game
 Remake With Multi-Player (Online)
 
+![...](https://raw.githubusercontent.com/Geedium/AZTank/master/.github/preview.png)
+
 ###### Dependencies
 
-* FreeType
+* FreeType (optional)
 * FreeImage
 * GLEW
 * GLFW
