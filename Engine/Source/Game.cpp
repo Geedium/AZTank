@@ -402,7 +402,7 @@ public:
 		bullets = new Layer(new BatchRenderer2D(), diffuse, ortho);
 
 		playerTexture = new Texture("Data/textures/Paddle.png");
-		player = new Sprite(-10.6f, 0, 1.75f, 1.75f, playerTexture);
+		player = new Sprite(-10.6f, 0, 0.95f, 0.95f, playerTexture);
 	
 		Texture* wallTexture = new Texture("Data/textures/Wall.png");
 
@@ -421,9 +421,12 @@ public:
 					foreground->Add(new Sprite(x, y, 1.0f, 1.0f, wallTexture));
 				}
 				else {
-					auto i = (int)(x) % 2 == 0;
-					auto j = (int)(y) % 5 != 1;
-					foreground->Add(new Sprite(i, j, 1.0f, 1.0f, wallTexture));
+					auto p = (int)x % 1 == 0;
+					auto j = (int)y % 5 != 1;
+					if (p > rand() % 4 && j > rand() % 4 )
+					{
+						foreground->Add(new Sprite(x, y, 1.0f, 1.0f, wallTexture));
+					}
 				}
 			}
 		}
@@ -470,30 +473,28 @@ public:
 		Vector3 old = pos;
 		bool isColidiing = false;
 
+		Vector3 dir = Vector3(sin(angle), tan(angle), 0);
+		dir.Normalize();
+
 		if (window->IsKeyPressed(GLFW_KEY_W) && !isColidiing)
 		{
+			//pos += dir * speed * delta;
 			pos.y += speed * delta;
 		}
 		else if (window->IsKeyPressed(GLFW_KEY_S) && !isColidiing)
 		{
+			//pos -= dir * speed * delta;
 			pos.y -= speed * delta;
 		}
 
 		if (window->IsKeyPressed(GLFW_KEY_A) && !isColidiing)
 		{
 			pos.x -= speed * delta;
+			angle -= speed * 5.0f;
 		}
 		else if (window->IsKeyPressed(GLFW_KEY_D) && !isColidiing)
 		{
 			pos.x += speed * delta;
-		}
-
-		if (window->IsKeyPressed(GLFW_KEY_Q))
-		{
-			angle -= speed * 5.0f;
-		}
-		else if (window->IsKeyPressed(GLFW_KEY_E))
-		{
 			angle += speed * 5.0f;
 		}
 		
@@ -529,7 +530,7 @@ public:
 			{
 				value->created = true;
 
-				value->object = new Sprite(-16.6f, 0.0f, 1.75f, 1.75f, playerTexture);
+				value->object = new Sprite(-16.6f, 0.0f, 0.95f, 0.95f, playerTexture);
 				value->object->SetPosition(value->pos);
 
 				players->Add(value->object);
@@ -588,16 +589,16 @@ public:
 		Matrix4 model = Matrix4::Identity();
 
 		model *= Matrix4::Translate(Vector3(
-			-player->position.x,
-			-player->position.y,
+			-(player->position.x + player->GetSize().x / 2.0f),
+			-(player->position.y + player->GetSize().y / 2.0f),
 			-player->position.z
 		));
 
 		model *= Matrix4::Rotate(angle, Vector3(0, 0, 1));
 
 		model *= Matrix4::Translate(Vector3(
-			player->position.x,
-			player->position.y,
+			(player->position.x + player->GetSize().x / 2.0f),
+			(player->position.y + player->GetSize().y / 2.0f),
 			player->position.z
 		));
 
