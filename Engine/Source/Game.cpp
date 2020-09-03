@@ -271,6 +271,7 @@ private:
 	Shader* playerShader;
 	Shader* rot;
 	Camera* cam;
+	Vector3 newDirectionVector;
 	Texture* missleTexture;
 	float timer;
 	float speed = 0.35f;
@@ -473,29 +474,38 @@ public:
 		Vector3 old = pos;
 		bool isColidiing = false;
 
-		Vector3 dir = Vector3(sin(angle), tan(angle), 0);
-		dir.Normalize();
+		std::cout << "Angle: " << angle << std::endl;
+
+		float theta = ToRadians(angle);
+
+		Vector3 rotation;
+		rotation.x = sin(theta);
+		rotation.y = cos(theta);
 
 		if (window->IsKeyPressed(GLFW_KEY_W) && !isColidiing)
 		{
-			//pos += dir * speed * delta;
-			pos.y += speed * delta;
+			pos += rotation * 0.1f;
 		}
 		else if (window->IsKeyPressed(GLFW_KEY_S) && !isColidiing)
 		{
-			//pos -= dir * speed * delta;
-			pos.y -= speed * delta;
+			pos -= rotation * 0.1f;
 		}
 
 		if (window->IsKeyPressed(GLFW_KEY_A) && !isColidiing)
 		{
-			pos.x -= speed * delta;
 			angle -= speed * 5.0f;
+			if (angle <= 0)
+			{
+				angle = 360;
+			}
 		}
 		else if (window->IsKeyPressed(GLFW_KEY_D) && !isColidiing)
 		{
-			pos.x += speed * delta;
 			angle += speed * 5.0f;
+			if (angle >= 360)
+			{
+				angle = 0;
+			}
 		}
 		
 		if (window->IsKeyPressed(GLFW_KEY_SPACE) && now > nextShoot)
@@ -594,6 +604,8 @@ public:
 			-player->position.z
 		));
 
+		model *= Matrix4::Rotate(0, Vector3(1, 0, 0));
+		model *= Matrix4::Rotate(0, Vector3(0, 1, 0));
 		model *= Matrix4::Rotate(angle, Vector3(0, 0, 1));
 
 		model *= Matrix4::Translate(Vector3(
