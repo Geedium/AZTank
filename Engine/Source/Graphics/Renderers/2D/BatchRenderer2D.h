@@ -18,6 +18,12 @@ namespace Augiwne { namespace Graphics {
 #define SHADER_TID_INDEX 2
 #define SHADER_COLOR_INDEX 3
 
+	struct Character {
+		unsigned int TextureID;  // ID handle of the glyph texture
+		Vector2   Size;       // Size of glyph
+		Vector2   Bearing;    // Offset from baseline to left/top of glyph
+		unsigned int Advance;    // Offset to advance to next glyph
+	};
 
 	class BatchRenderer2D : public Renderer2D
 	{
@@ -28,6 +34,10 @@ namespace Augiwne { namespace Graphics {
 		GLsizei m_IndexBufferCount;
 		VertexData* m_DataBuffer;
 		std::vector<GLuint> m_TextureSlots;
+		std::map<char, Character> Characters;
+
+		FT_Face face;
+		FT_Library library;
 	public:
 		BatchRenderer2D();
 		~BatchRenderer2D();
@@ -36,6 +46,7 @@ namespace Augiwne { namespace Graphics {
 	public:
 		void Begin() override;
 		void Submit(const Renderable2D* renderable) override;
+		void DrawString(const std::string& text, const Vector3& position, const Vector4& color) override;
 		void End() override;
 		void Flush() override;
 	};

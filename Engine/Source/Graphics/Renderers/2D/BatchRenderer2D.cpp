@@ -46,6 +46,66 @@ namespace Augiwne { namespace Graphics {
 		}
 		m_IndexBuffer = new IndexBuffer(indices, RENDERER_INDICES_SIZE);
 		glBindVertexArray(0);
+
+		FT_Error error = FT_Init_FreeType(&library);
+		if (error) {
+			std::cout << "Error occurred during library initialization" << std::endl;
+			exit(0);
+		}
+
+		error = FT_New_Face(library, "Bagnard.otf", 0, &face);
+		if (error == FT_Err_Unknown_File_Format)
+		{
+			std::cout << "Font file format could not be read!" << std::endl;
+			exit(0);
+		}
+		else if (error)
+		{
+			std::cout << "Font loading error!" << std::endl;
+			exit(0);
+		}
+
+		error = FT_Set_Pixel_Sizes(face, 0, 24);
+
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 1); // disable byte-alignment restriction
+
+		for (unsigned char c = 0; c < 128; c++)
+		{
+			// load character glyph 
+			if (FT_Load_Char(face, c, FT_LOAD_RENDER))
+			{
+				std::cout << "ERROR::FREETYTPE: Failed to load Glyph" << std::endl;
+				continue;
+			}
+			// generate texture
+			unsigned int texture;
+			glGenTextures(1, &texture);
+			glBindTexture(GL_TEXTURE_2D, texture);
+			glTexImage2D(
+				GL_TEXTURE_2D,
+				0,
+				GL_RED,
+				face->glyph->bitmap.width,
+				face->glyph->bitmap.rows,
+				0,
+				GL_RED,
+				GL_UNSIGNED_BYTE,
+				face->glyph->bitmap.buffer
+			);
+			// set texture options
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			// now store character for later use
+			Character character = {
+				texture,
+				Vector2(face->glyph->bitmap.width, face->glyph->bitmap.rows),
+				Vector2(face->glyph->bitmap_left, face->glyph->bitmap_top),
+				face->glyph->advance.x
+			};
+			Characters.insert(std::pair<char, Character>(c, character));
+		}
 	}
 	void BatchRenderer2D::Begin()
 	{
@@ -85,6 +145,7 @@ namespace Augiwne { namespace Graphics {
 				ts = (float)(m_TextureSlots.size());
 			}
 		}
+
 		m_DataBuffer->vertex = *m_TransformationBack * pos;
 		m_DataBuffer->uv = uv[0];
 		m_DataBuffer->tid = ts;
@@ -110,6 +171,88 @@ namespace Augiwne { namespace Graphics {
 		m_DataBuffer++;
 
 		m_IndexBufferCount += 6;
+	}
+	void BatchRenderer2D::DrawString(const std::string& text, const Vector3& position, const Vector4& color)
+	{
+		std::string::const_iterator c;
+		Vector3 offset = position;
+
+		float scaleX = 960.0f / 32.0f;
+		float scaleY = 540.0f / 10.0f;
+
+		for (c = text.begin(); c != text.end(); c++)
+		{
+			Character ch = Characters[*c];
+
+			float xpos = offset.x + ch.Bearing.x / scaleX;
+			float ypos = offset.y - (ch.Size.y - ch.Bearing.y) / scaleY;
+
+			float w = ch.Size.x / scaleX;
+			float h = ch.Size.y / scaleY;
+
+			int r = color.x * 255.0f;
+			int g = color.y * 255.0f;
+			int b = color.z * 255.0f;
+			int a = color.w * 255.0f;
+
+			GLuint c = a << 24 | b << 16 | g << 8 | r;
+
+			const GLint tid = ch.TextureID;
+			float ts = 0.0f;
+
+			if (tid > 0)
+			{
+				bool found = false;
+				for (int i = 0; i < m_TextureSlots.size(); i++)
+				{
+					if (m_TextureSlots[i] == tid)
+					{
+						ts = (float)(i + 1);
+						found = true;
+						break;
+					}
+				}
+				if (!found)
+				{
+					if (m_TextureSlots.size() >= RENDERER_MAX_TEXTURES)
+					{
+						End();
+						Flush();
+						Begin();
+					}
+					m_TextureSlots.push_back(tid);
+					ts = (float)(m_TextureSlots.size());
+				}
+			}
+
+			m_DataBuffer->vertex = *m_TransformationBack * Vector3(xpos, ypos, 0);
+			m_DataBuffer->uv = Vector2(0, 0);
+			m_DataBuffer->tid = ts;
+			m_DataBuffer->color = c;
+			m_DataBuffer++;
+
+			m_DataBuffer->vertex = *m_TransformationBack * Vector3(xpos, ypos + h, 0);
+			m_DataBuffer->uv = Vector2(0, 1);
+			m_DataBuffer->tid = ts;
+			m_DataBuffer->color = c;
+			m_DataBuffer++;
+
+			m_DataBuffer->vertex = *m_TransformationBack * Vector3(xpos + w, ypos + h, 0);
+			m_DataBuffer->uv = Vector2(1, 1);
+			m_DataBuffer->tid = ts;
+			m_DataBuffer->color = c;
+			m_DataBuffer++;
+
+			m_DataBuffer->vertex = *m_TransformationBack * Vector3(xpos + w, ypos, 0);
+			m_DataBuffer->uv = Vector2(1, 0);
+			m_DataBuffer->tid = ts;
+			m_DataBuffer->color = c;
+			m_DataBuffer++;
+
+			m_IndexBufferCount += 6;
+
+			offset.x += (ch.Advance >> 6) / scaleX;
+		}
 	}
 	void BatchRenderer2D::Flush()
 	{

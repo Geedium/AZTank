@@ -15,7 +15,7 @@ static std::string SERVER_ADDR;
 
 constexpr enet_uint32	PACKET_PLAYER_UPDATE = 6;
 
-#define READ_BUFFER_SIZE 4096
+constexpr auto READ_BUFFER_SIZE = 4096;
 
 static int endian = 2;
 
@@ -268,6 +268,7 @@ private:
 	Sprite* missle;
 	Sprite* sprWolf;
 	Shader* diffuse;
+	Shader* glyphs;
 	Shader* playerShader;
 	Shader* rot;
 	Camera* cam;
@@ -386,6 +387,9 @@ public:
 	{
 		window = CreateRenderWindow("AZ", 960, 540, GetVSync());
 		diffuse = new Shader("Data/Vertex.shader", darkMode ? "Data/FragDark.shader" : "Data/Frag.shader");
+
+		glyphs = new Shader("Data/GlyphsVertex.shader", "Data/GlyphsFrag.shader");
+
 		playerShader = diffuse;
 
 		Matrix4& ortho = Matrix4::Orthographic(-16, 16, -9, 9, -1, 1);
@@ -473,8 +477,6 @@ public:
 		Vector3 pos = player->GetPosition();
 		Vector3 old = pos;
 		bool isColidiing = false;
-
-		std::cout << "Angle: " << angle << std::endl;
 
 		float theta = ToRadians(angle);
 
@@ -586,6 +588,11 @@ public:
 		foreground->Render();
 		players->Render();
 
+		renderer->Begin();
+		renderer->DrawString("0 | 0", Vector3(0, 0, 0), Vector4(1.0f, 1.0f, 1.0f, 1.0f));
+		renderer->End();
+		renderer->Flush();
+
 		rot->Enable();
 		rot->SetUniformMatrix4("pr_matrix", Matrix4::Orthographic(-16.0f, 16.0f, -9.0f, 9.0f, -1.0f, 1.0f));
 		rot->SetUniformMatrix4("vw_matrix", Matrix4::Identity());
@@ -619,7 +626,6 @@ public:
 		renderer->Begin();
 		renderer->Submit(player);
 		renderer->End();
-
 		renderer->Flush();
 	}
 };

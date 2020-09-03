@@ -29,6 +29,7 @@ namespace Augiwne { namespace Graphics {
 		}
 		virtual void Begin() {}
 		virtual void Submit(const Renderable2D* renderable) = 0;
+		virtual void DrawString(const std::string& text, const Vector3& position, const Vector4& color) = 0;
 		virtual void End() {}
 		virtual void Flush() = 0;
 	};

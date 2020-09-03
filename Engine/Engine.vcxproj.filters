@@ -133,6 +133,9 @@
     <ClCompile Include="Source\Entities\Bullet.cpp">
       <Filter>Source Files\Entities</Filter>
     </ClCompile>
+    <ClCompile Include="Source\Graphics\label.cpp">
+      <Filter>Source Files\Graphics\Renderables</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\Utilities\File.h">
@@ -233,6 +236,9 @@
     </ClInclude>
     <ClInclude Include="Transform.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Graphics\label.h">
+      <Filter>Header Files\Graphics\Renderables</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
