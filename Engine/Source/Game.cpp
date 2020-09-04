@@ -257,43 +257,36 @@ void SendBulletPos(const float x, const float y)
 class Game : public Augiwne
 {
 private:
-	Window* window;
+	Window* window; // Render window.
 private:
-	Layer* foreground;
-	Layer* players;
+	Layer* ground; // Background rendering layer.
+	Layer* foreground; // Foreground rendering layer.
+	Layer* players; // Players rendering layer.
 private:
-	BatchRenderer2D* renderer;
+	BatchRenderer2D* renderer; // *tmp
+	Shader* diffuse; // Diffuse shader.
 private:
-	Sprite* player;
+	Sprite* background; // Background sprite.
+	Sprite* player; // Player sprite *tmp.
 	Sprite* missle;
-	Sprite* sprWolf;
-	Shader* diffuse;
-	Shader* glyphs;
-	Shader* playerShader;
-	Shader* rot;
-	Camera* cam;
-	Vector3 newDirectionVector;
+private:
+	Texture* backgroundTexture; // Background texture.
 	Texture* missleTexture;
-	float timer;
+private:
 	float speed = 0.35f;
 	bool darkMode;
 	bool moved;
 	int sequence;
-private: // Sound manager
-	ALCcontext* context;
-	ALCdevice* device;
-	ALuint source;
-	ALuint buffer;
 private:
-	enum Direction
-	{
-		UP,
-		DOWN,
-		RIGHT,
-		LEFT
-	};
-	Direction heading;
-	bool bouncing;
+	float angle = 0; // Rotation angle of local player. *tmp
+	float nextShoot = 0; // Bullet shoot of local player. *tmp
+	float now, last; // Timing (now and last).
+	float delta; // Delta time.
+private:
+	ALCcontext* context; // Audio context.
+	ALCdevice* device; // Audio device.
+	ALuint source; // Audio source.
+	ALuint buffer; // Audio buffer.
 public:
 	const bool AABBCollision(Renderable2D* a, Renderable2D* b) const
 	{
@@ -385,28 +378,29 @@ public:
 	}
 	void Init() override
 	{
-		window = CreateRenderWindow("AZ", 960, 540, GetVSync());
-		diffuse = new Shader("Data/Vertex.shader", darkMode ? "Data/FragDark.shader" : "Data/Frag.shader");
-
-		glyphs = new Shader("Data/GlyphsVertex.shader", "Data/GlyphsFrag.shader");
-
-		playerShader = diffuse;
-
-		Matrix4& ortho = Matrix4::Orthographic(-16, 16, -9, 9, -1, 1);
+		window = CreateRenderWindow("AZ", 960, 540, 1 / 60); // Create a new render window.
+		diffuse = new Shader("Data/Vertex.shader", "Data/Frag.shader"); // Load diffuse shader from file.
+		Matrix4& ortho = Matrix4::Orthographic(-16, 16, -9, 9, -1, 1); // Make orthographic matrix.
 	
+		backgroundTexture = new Texture("Data/textures/Background.png"); // Load background texture from file.
+		background = new Sprite(-16, -9, 32, 18, backgroundTexture); // Create a new background sprite.
+
+		ground = new Layer(new BatchRenderer2D(), diffuse, ortho); // Create a new background layer.
+		ground->Add(background); // Attach background to ground.
+
 		// Missle
 		renderer = new BatchRenderer2D();
-		rot = new Shader("Data/Vertex.shader", "Data/Frag.shader");
 		missleTexture = new Texture("Data/textures/Missle.png");
 		missle = new Sprite(-6.0f, 0.0f, 0.8f, 1.0f, missleTexture);
 
 		bulletTx = new Texture("Data/textures/Bullet.png");
 
-		foreground = new Layer(new BatchRenderer2D(), diffuse, ortho);
+		foreground = new Layer(new BatchRenderer2D(), diffuse, ortho); // Create a new foreground layer.
+
 		players = new Layer(new BatchRenderer2D(), diffuse, ortho);
 		bullets = new Layer(new BatchRenderer2D(), diffuse, ortho);
 
-		playerTexture = new Texture("Data/textures/Paddle.png");
+		playerTexture = new Texture("Data/textures/Tank.png");
 		player = new Sprite(-10.6f, 0, 0.95f, 0.95f, playerTexture);
 	
 		Texture* wallTexture = new Texture("Data/textures/Wall.png");
@@ -436,19 +430,11 @@ public:
 			}
 		}
 	}
-	float now, last;
-	float delta;
+
 	void Tick() override
 	{
-		printf("%u ups, %u fps\n", GetUPS(), GetFPS());
+		std::cout << GetUPS() << " ups, " << GetFPS() << " fps." << std::endl;
 	}
-
-	float tx = .4f;
-	float ty = 0;
-	float brk = 0;
-	float brk2 = 0;
-	float angle = 0;
-	float nextShoot = 0;
 
 	void Update() override
 	{
@@ -459,7 +445,7 @@ public:
 		}
 		now = m_Watcher->Elapsed();
 
-		for (Renderable2D* bullet : bullets->GetRenderables() )
+		for (Renderable2D* bullet : bullets->GetRenderables())
 		{
 			Vector3 pos = bullet->GetPosition();
 			pos.y += speed * delta;
@@ -467,13 +453,6 @@ public:
 			bullet->SetPosition(pos);
 		}
 
-		//rot->SetUniformMatrix4("ml_matrix", Matrix4::Rotate(angle, Vector3(1, 1, 1)));
-
-		/*
-
-			BEGIN LOCAL_PLAYER
-
-			*/
 		Vector3 pos = player->GetPosition();
 		Vector3 old = pos;
 		bool isColidiing = false;
@@ -562,69 +541,49 @@ public:
 				}
 			}
 		}
-
-		for (int i = 0; i < foreground->GetRenderables().size(); i++)
-		{
-			diffuse->Enable();
-
-			Renderable2D* rend = foreground->GetRenderables().at(i);
-		}
 	}
 
 	void Render() override
 	{
-		double x, y;
+		static double x, y;
 		window->GetMousePosition(x, y);
 
-		// - Lightning
 		diffuse->Enable();
 		diffuse->SetUniform2f("light_pos",
 			Vector2((float)(x * 32 / window->GetWidth() - 16),
-			(float)(9 - y * 18 / window->GetHeight())));
-		;
+				(float)(9 - y * 18 / window->GetHeight())));
 
-		// - Layers
-		bullets->Render();
-		foreground->Render();
-		players->Render();
+		ground->Render(); // Render background rendering layer.
+		foreground->Render(); // Render foreground rendering layer.
+		bullets->Render(); // Render bullets rendering layer.
+		players->Render(); // Render players rendering layer.
 
+		/* DRAW TEXT
 		renderer->Begin();
 		renderer->DrawString("0 | 0", Vector3(0, 0, 0), Vector4(1.0f, 1.0f, 1.0f, 1.0f));
 		renderer->End();
 		renderer->Flush();
-
-		rot->Enable();
-		rot->SetUniformMatrix4("pr_matrix", Matrix4::Orthographic(-16.0f, 16.0f, -9.0f, 9.0f, -1.0f, 1.0f));
-		rot->SetUniformMatrix4("vw_matrix", Matrix4::Identity());
-		rot->SetUniformMatrix4("ml_matrix", Matrix4::Identity());
+		*/
 
 		renderer->Begin();
-		renderer->Submit(missle);
-		renderer->End();
-		renderer->Flush();
 
 		Matrix4 model = Matrix4::Identity();
-
 		model *= Matrix4::Translate(Vector3(
 			-(player->position.x + player->GetSize().x / 2.0f),
 			-(player->position.y + player->GetSize().y / 2.0f),
-			-player->position.z
-		));
-
-		model *= Matrix4::Rotate(0, Vector3(1, 0, 0));
-		model *= Matrix4::Rotate(0, Vector3(0, 1, 0));
+			-player->position.z));
 		model *= Matrix4::Rotate(angle, Vector3(0, 0, 1));
-
 		model *= Matrix4::Translate(Vector3(
 			(player->position.x + player->GetSize().x / 2.0f),
 			(player->position.y + player->GetSize().y / 2.0f),
-			player->position.z
-		));
+			player->position.z));
 
-		rot->SetUniformMatrix4("ml_matrix", model);
-
-		renderer->Begin();
+		renderer->Push(model, true);
 		renderer->Submit(player);
+		renderer->Pop();
+
+		renderer->Submit(missle);
+		
 		renderer->End();
 		renderer->Flush();
 	}

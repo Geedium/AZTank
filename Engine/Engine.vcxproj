@@ -199,7 +199,7 @@
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>System.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>Source;$(SolutionDir)Dependencies\enet-1.3.15\include;$(SolutionDir)Dependencies\gorilla-audio\include;$(SolutionDir)Dependencies\OpenAL\include;$(SolutionDir)Dependencies\libvorbis\include;$(SolutionDir)Dependencies\freetype-2.10.2\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>Source;$(SolutionDir)Dependencies\enet-1.3.15\include;$(SolutionDir)Dependencies\gorilla-audio\include;$(SolutionDir)Dependencies\OpenAL\include;$(SolutionDir)Dependencies\libvorbis\include;$(SolutionDir)Dependencies\freetype-2.10.2\include;src</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>

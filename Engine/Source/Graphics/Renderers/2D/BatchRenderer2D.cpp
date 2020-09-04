@@ -67,6 +67,7 @@ namespace Augiwne { namespace Graphics {
 
 		error = FT_Set_Pixel_Sizes(face, 0, 24);
 
+		/*
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 1); // disable byte-alignment restriction
 
 		for (unsigned char c = 0; c < 128; c++)
@@ -95,8 +96,8 @@ namespace Augiwne { namespace Graphics {
 			// set texture options
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 			// now store character for later use
 			Character character = {
 				texture,
@@ -106,6 +107,7 @@ namespace Augiwne { namespace Graphics {
 			};
 			Characters.insert(std::pair<char, Character>(c, character));
 		}
+		*/
 	}
 	void BatchRenderer2D::Begin()
 	{
