@@ -16,6 +16,10 @@ namespace Augiwne { namespace Maths {
 		z *= len;
 		return *this;
 	}
+	float Vector3::Length()
+	{
+		return sqrt(x * x + y * y);
+	}
 	Vector3& Vector3::Add(const Vector3& other)
 	{
 		x += other.x;

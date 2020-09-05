@@ -14,3 +14,9 @@ inline float ToRadians(float degrees)
 {
 	return degrees * ((float)M_PI / 180.0f);
 }
+
+inline float distance(Vector2 a, Vector2 b)
+{
+	Vector2 c(b.x - a.x, b.y - a.y);
+	return sqrt(c.x * c.x + c.y * c.y);
+}

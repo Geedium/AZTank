@@ -28,6 +28,17 @@ namespace Augiwne { namespace Graphics {
 	{
 		m_Renderables.push_back(renderable);
 	}
+	void Layer::Remove(Renderable2D* renderable)
+	{
+		for (int i = 0; i < m_Renderables.size(); i++)
+		{
+			if (renderable == m_Renderables[i])
+			{
+				m_Renderables.erase(m_Renderables.begin() + i);
+				delete m_Renderables[i];
+			}
+		}
+	}
 	void Layer::Render()
 	{
 		m_Shader->Enable();

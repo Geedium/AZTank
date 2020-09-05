@@ -14,6 +14,7 @@ namespace Augiwne { namespace Graphics {
 		Layer(Renderer2D* renderer, Shader* shader, Maths::Matrix4 matrix);
 		virtual ~Layer();
 		virtual void Add(Renderable2D* renderable);
+		virtual void Remove(Renderable2D* renderable);
 		virtual void Render();
 		inline const std::vector<Renderable2D*>& GetRenderables() const { return m_Renderables; }
 	};

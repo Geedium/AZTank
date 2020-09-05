@@ -10,6 +10,7 @@ namespace Augiwne { namespace Maths {
 
 		Vector3(const float& x, const float& y, const float& z);
 
+		float Length();
 		Vector3& Normalize();
 
 		Vector3& Add(const Vector3& other);

@@ -18,6 +18,7 @@ constexpr enet_uint32	PACKET_PLAYER_UPDATE = 6;
 constexpr auto READ_BUFFER_SIZE = 4096;
 
 static int endian = 2;
+Texture* bulletTx;
 
 int load_ogg(const char* file_path, std::vector<char>* buffer, int* num_channels, int* freq)
 {
@@ -77,6 +78,8 @@ int load_ogg(const char* file_path, std::vector<char>* buffer, int* num_channels
 	return 0;
 }
 
+Layer* bulletsLayer;
+
 struct ClientData
 {
 private:
@@ -88,6 +91,7 @@ public:
 };
 
 std::map<int, ClientData*> client_map;
+bool isConnected;
 
 struct PlayerData
 {
@@ -103,7 +107,46 @@ public:
 	{}
 };
 
+struct BulletData
+{
+public:
+	Vector3 lastPos;
+	Vector3 position;
+	Sprite* object;
+	float angle;
+	float radius;
+public:
+	BulletData(const Vector3 pos, const float angle)
+		: position(pos), angle(angle), lastPos(0,0,0)
+	{
+		object = new Sprite(pos.x, pos.y, 0.32f, 0.32f, bulletTx);
+
+		float left = object->GetPosition().x;
+		float right = left + object->GetSize().x;
+		float top = object->GetPosition().y;
+		float bottom = top + object->GetSize().y;
+
+		float dx = right - left;
+		float dy = bottom - top;
+		radius = sqrt(dx * dx + dy * dy) / 2;
+
+		bulletsLayer->Add(object);
+	}
+	void Update()
+	{
+		float theta = ToRadians(angle);
+
+		Vector3 rotation;
+		rotation.x = sin(theta);
+		rotation.y = cos(theta);
+
+		position += rotation * 0.1f;
+		object->SetPosition(position);
+	}
+};
+
 std::map<int, PlayerData*> player_map;
+
 
 Texture* playerTexture;
 ENetPeer* peer;
@@ -119,9 +162,6 @@ void SendPacket(ENetPeer* peer, const char* data)
 	ENetPacket* packet = enet_packet_create(data, strlen(data) + 1, ENET_PACKET_FLAG_RELIABLE);
 	enet_peer_send(peer, 0, packet);
 }
-
-Layer* bullets;
-Texture* bulletTx;
 
 void ParseData(char* data)
 {
@@ -154,7 +194,6 @@ void ParseData(char* data)
 		break;
 	case 4U:
 		std::cout << "Spawning a bullet!" << std::endl;
-		bullets->Add(new Sprite(x, y, 0.32f, 0.32f, bulletTx));
 		break;
 	}
 }
@@ -193,11 +232,13 @@ DWORD WINAPI NetLoop(__in LPVOID lpParameter)
 		event.type == ENET_EVENT_TYPE_CONNECT)
 	{
 		std::cout << "Connection to " << SERVER_ADDR << ":4242 succeeded!" << std::endl;
+		isConnected = 1;
 	}
 	else
 	{
 		std::cout << "Connection to " << SERVER_ADDR << ":4242 failed!" << std::endl;
 		enet_peer_reset(peer);
+		isConnected = 0;
 	}
 	
 	while (true)
@@ -287,6 +328,8 @@ private:
 	ALCdevice* device; // Audio device.
 	ALuint source; // Audio source.
 	ALuint buffer; // Audio buffer.
+private:
+	std::vector<BulletData*> bullets;
 public:
 	const bool AABBCollision(Renderable2D* a, Renderable2D* b) const
 	{
@@ -294,6 +337,30 @@ public:
 		bool cy = a->GetPosition().y + a->GetSize().y >= b->GetPosition().y && b->GetPosition().y + b->GetSize().y >= a->GetPosition().y;
 		return cx && cy;
 	}
+
+	const bool RectangleCircle(
+		Renderable2D* circle,
+		const float radius,
+		Renderable2D* rect) const
+	{
+		Vector3 distance(
+			abs(circle->GetPosition().x - rect->GetPosition().x),
+			abs(circle->GetPosition().y - rect->GetPosition().y),
+			0);
+
+		if (distance.x > (rect->GetSize().x / 2 + radius)) { return false; }
+		if (distance.y > (rect->GetSize().y / 2 + radius)) { return false; }
+		if (distance.x <= (rect->GetSize().x / 2)) { return true; }
+		if (distance.y <= (rect->GetSize().y / 2)) { return true; }
+
+		float x = (distance.x - rect->GetSize().x / 2) * (distance.x - rect->GetSize().x / 2);
+		float y = (distance.y - rect->GetSize().y / 2) * (distance.y - rect->GetSize().y / 2);
+
+		float cDist_sq = x + y;
+
+		return (cDist_sq <= (radius * radius));
+	}
+
 public:
 	Game()
 	{
@@ -398,9 +465,9 @@ public:
 		foreground = new Layer(new BatchRenderer2D(), diffuse, ortho); // Create a new foreground layer.
 
 		players = new Layer(new BatchRenderer2D(), diffuse, ortho);
-		bullets = new Layer(new BatchRenderer2D(), diffuse, ortho);
+		bulletsLayer = new Layer(new BatchRenderer2D(), diffuse, ortho);
 
-		playerTexture = new Texture("Data/textures/Tank.png");
+		playerTexture = new Texture("Data/textures/Blue_Tank.png");
 		player = new Sprite(-10.6f, 0, 0.95f, 0.95f, playerTexture);
 	
 		Texture* wallTexture = new Texture("Data/textures/Wall.png");
@@ -445,16 +512,17 @@ public:
 		}
 		now = m_Watcher->Elapsed();
 
-		for (Renderable2D* bullet : bullets->GetRenderables())
+		for (BulletData* bullet : bullets)
 		{
-			Vector3 pos = bullet->GetPosition();
-			pos.y += speed * delta;
-
-			bullet->SetPosition(pos);
+			bullet->lastPos = bullet->position;
+			bullet->Update();
 		}
 
 		Vector3 pos = player->GetPosition();
 		Vector3 old = pos;
+		pos.z = 0;
+		old.z = 0;
+
 		bool isColidiing = false;
 
 		float theta = ToRadians(angle);
@@ -462,14 +530,17 @@ public:
 		Vector3 rotation;
 		rotation.x = sin(theta);
 		rotation.y = cos(theta);
+		rotation.z = 0;
 
 		if (window->IsKeyPressed(GLFW_KEY_W) && !isColidiing)
 		{
 			pos += rotation * 0.1f;
+			pos.z = 0;
 		}
 		else if (window->IsKeyPressed(GLFW_KEY_S) && !isColidiing)
 		{
 			pos -= rotation * 0.1f;
+			pos.z = 0;
 		}
 
 		if (window->IsKeyPressed(GLFW_KEY_A) && !isColidiing)
@@ -495,7 +566,15 @@ public:
 			alSourcePlay(source);
 			nextShoot = now + 0.58888795f;
 
-			SendBulletPos(pos.x, pos.y);
+			if (isConnected)
+			{
+				SendBulletPos(pos.x, pos.y);
+			}
+			else
+			{
+				BulletData* data = new BulletData(pos, angle);
+				bullets.push_back(data);
+			}
 		}
 
 		player->SetPosition(pos);
@@ -505,6 +584,22 @@ public:
 			if (AABBCollision(obj, player))
 			{
 				isColidiing = true;
+			}
+
+			for (int i = 0; i < bullets.size(); i++)
+			{
+				if (RectangleCircle(bullets[i]->object, bullets[i]->radius, obj))
+				{
+					bullets[i]->position = bullets[i]->lastPos;
+					if (abs(bullets[i]->angle * -1) == abs(bullets[i]->angle))
+					{
+						bullets[i]->angle = rand() % 360;
+					}
+					else
+					{
+						bullets[i]->angle = bullets[i]->angle * -1;
+					}
+				}
 			}
 		}
 
@@ -552,10 +647,15 @@ public:
 		diffuse->SetUniform2f("light_pos",
 			Vector2((float)(x * 32 / window->GetWidth() - 16),
 				(float)(9 - y * 18 / window->GetHeight())));
+		diffuse->SetUniformMatrix4("vw_matrix", Matrix4::Translate(Vector3(
+			-(player->position.x + player->GetSize().x / 2.0f),
+			-(player->position.y + player->GetSize().y / 2.0f),
+			0)
+		));
 
 		ground->Render(); // Render background rendering layer.
 		foreground->Render(); // Render foreground rendering layer.
-		bullets->Render(); // Render bullets rendering layer.
+		bulletsLayer->Render(); // Render bullets rendering layer.
 		players->Render(); // Render players rendering layer.
 
 		/* DRAW TEXT
