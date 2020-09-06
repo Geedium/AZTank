@@ -1,22 +1,10 @@
 workspace "AZ"
+    startproject "AZ"
     configurations { "Release" }
+    platforms { "Win32" }
 
-project "AZ"
-    kind "ConsoleApp"
-    language "C++"
-    targetdir "bin/%{cfg.buildcfg}"
+    filter "platforms:Win32"
+        architecture "x86"
 
-    includedirs {
-        "vendor/include"
-    }
-
-    libdirs {
-        "vendor/lib"
-    }
-
-    files { "**.h", "**.c" }
-
-    filter "configurations:Release"
-        defines { "NDEBUG" }
-        optimize "On"
-        
+include "Server"
+include "Engine"

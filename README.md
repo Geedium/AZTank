@@ -5,11 +5,11 @@ Remake With Multi-Player (Online)
 
 ###### Dependencies
 
-* FreeType (*2.10.2*)
-* FreeImage (*3.17.0*)
+* FreeType (**2.10.2**)
+* FreeImage (**3.17.0**)
 * GLEW
 * GLFW
 * libogg
 * libvorbis
 * OpenAL
-* ENet (*1.13.15)
+* ENet (**1.13.15**)
