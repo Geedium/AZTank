@@ -6,5 +6,8 @@ workspace "AZ"
     filter "platforms:Win32"
         architecture "x86"
 
+    filter "configurations:Release"
+        symbols "Off"
+
 include "Server"
 include "Engine"
