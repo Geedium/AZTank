@@ -317,12 +317,20 @@ private:
 	Sprite* background; // Background sprite.
 	Sprite* player; // Player sprite *tmp.
 	Sprite* missle;
+	Sprite* explosion;
+private:
+	int key; // Animation key.
 private:
 	Texture* backgroundTexture; // Background texture.
 	Texture* missleTexture;
 	Texture* deadTexture;
+	Texture* expo1;
+	Texture* expo2;
+	Texture* expo3;
+	Texture* expo4;
 private:
 	float speed = 0.35f;
+	float animFrameDelay = 0;
 	bool darkMode;
 	bool moved;
 	bool isDead;
@@ -484,11 +492,18 @@ public:
 		// Missle
 		renderer = new BatchRenderer2D();
 		missleTexture = new Texture("Data/textures/Missle.png");
-		missle = new Sprite(-6.0f, 0.0f, 0.8f, 1.0f, missleTexture);
+		missle = new Sprite(-6.0f, 0.0f, 0.65f, 0.65f, missleTexture);
 
 		deadTexture = new Texture("Data/textures/neutral_256x256.png");
 
 		bulletTx = new Texture("Data/textures/Bullet.png");
+		
+		expo1 = new Texture("Data/textures/explosion1.png");
+		expo2 = new Texture("Data/textures/expo2.png");
+		expo3 = new Texture("Data/textures/expo3.png");
+		expo4 = new Texture("Data/textures/expo4.png");
+
+		explosion = new Sprite(0, 0, 0.84f, 0.84f, expo1);
 
 		foreground = new Layer(new BatchRenderer2D(), diffuse, ortho); // Create a new foreground layer.
 
@@ -539,6 +554,24 @@ public:
 			last = now;
 		}
 		now = m_Watcher->Elapsed();
+
+		if (now > animFrameDelay)
+		{
+			key++;
+
+			switch (key)
+			{
+			case 0: explosion->SetTexture(expo1); break;
+			case 1: explosion->SetTexture(expo2); break;
+			case 2: explosion->SetTexture(expo3); break;
+			case 3: explosion->SetTexture(expo4); break;
+			}
+
+			if (key > 3)
+				key = 0;
+
+			animFrameDelay = now + 0.05f;
+		}
 
 		for (int i = 0; i < bullets.size(); i++)
 		{
@@ -745,8 +778,16 @@ public:
 		renderer->Submit(player);
 		renderer->Pop();
 
+		renderer->Push(Matrix4::Translate(Vector3(
+			missle->position.x - 0.08f,
+			missle->position.y - 0.55f,
+			missle->position.z
+		)));
+		renderer->Submit(explosion);
+		renderer->Pop();
+
 		renderer->Submit(missle);
-		
+
 		renderer->End();
 		renderer->Flush();
 	}
