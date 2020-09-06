@@ -9,6 +9,8 @@
 *.lib
 *.tlog
 
+vendor/**
+
 *.Build.CppClean
 *.vcxproj.FileListAbsolute
 *.applocal
