@@ -115,9 +115,10 @@ public:
 	Sprite* object;
 	float angle;
 	float radius;
+	float timer;
 public:
-	BulletData(const Vector3 pos, const float angle)
-		: position(pos), angle(angle), lastPos(0,0,0)
+	BulletData(const Vector3 pos, const float angle, const float time)
+		: position(pos), angle(angle), lastPos(0,0,0), timer(time)
 	{
 		object = new Sprite(pos.x, pos.y, 0.32f, 0.32f, bulletTx);
 
@@ -132,7 +133,7 @@ public:
 
 		bulletsLayer->Add(object);
 	}
-	void Update()
+	void Update(const float delta)
 	{
 		float theta = ToRadians(angle);
 
@@ -140,7 +141,8 @@ public:
 		rotation.x = sin(theta);
 		rotation.y = cos(theta);
 
-		position += rotation * 0.1f;
+		position += rotation * 0.175f;
+
 		object->SetPosition(position);
 	}
 };
@@ -162,6 +164,8 @@ void SendPacket(ENetPeer* peer, const char* data)
 	ENetPacket* packet = enet_packet_create(data, strlen(data) + 1, ENET_PACKET_FLAG_RELIABLE);
 	enet_peer_send(peer, 0, packet);
 }
+
+std::vector<BulletData*> bullets;
 
 void ParseData(char* data)
 {
@@ -194,6 +198,9 @@ void ParseData(char* data)
 		break;
 	case 4U:
 		std::cout << "Spawning a bullet!" << std::endl;
+
+		BulletData* data = new BulletData(Vector3(x, y), 0, FLT_MAX);
+		bullets.push_back(data);
 		break;
 	}
 }
@@ -313,10 +320,12 @@ private:
 private:
 	Texture* backgroundTexture; // Background texture.
 	Texture* missleTexture;
+	Texture* deadTexture;
 private:
 	float speed = 0.35f;
 	bool darkMode;
 	bool moved;
+	bool isDead;
 	int sequence;
 private:
 	float angle = 0; // Rotation angle of local player. *tmp
@@ -327,9 +336,9 @@ private:
 	ALCcontext* context; // Audio context.
 	ALCdevice* device; // Audio device.
 	ALuint source; // Audio source.
+	ALuint explodeSource; // ..
 	ALuint buffer; // Audio buffer.
-private:
-	std::vector<BulletData*> bullets;
+	ALuint explodeBuffer;
 public:
 	const bool AABBCollision(Renderable2D* a, Renderable2D* b) const
 	{
@@ -377,16 +386,28 @@ public:
 		}
 
 		alGenSources(1, &source);
-		//alListener3f(AL_POSITION, 0.0f, 0.0f, 0.0f);
-		alSource3f(source, AL_POSITION, 0, 0, 0);
-		alSource3f(source, AL_VELOCITY, 0, 0, 0);
+		alGenSources(1, &explodeSource);
+
+		alListener3f(AL_POSITION, 0.0f, 0.0f, 0.0f);
 		alGenBuffers((ALuint)1, &buffer);
+		alGenBuffers((ALuint)1, &explodeBuffer);
+
 		std::vector<char> oggbuffer;
+		std::vector<char> oggexplode;
+
 		int num_channels;
 		int freq;
+
 		if (load_ogg("Data/audio/shoot.ogg", &oggbuffer, &num_channels, &freq))
 		{
 			std::cout << "Failed to load ogg data." << std::endl;
+			exit(0);
+		}
+
+		if (load_ogg("Data/audio/explode.ogg", &oggexplode, &num_channels, &freq))
+		{
+			std::cout << "Failed to load explode ogg data." << std::endl;
+			exit(0);
 		}
 
 		ALenum format;
@@ -394,9 +415,12 @@ public:
 			format = AL_FORMAT_MONO16;
 		else
 			format = AL_FORMAT_STEREO16;
-		printf("oggbuffer size=%d, freq=%d\n", (int)oggbuffer.size(), freq);
+
 		alBufferData(buffer, format, &oggbuffer[0], (ALsizei)oggbuffer.size(), freq);
+		alBufferData(explodeBuffer, format, &oggexplode[0], (ALsizei)oggexplode.size(), freq);
+
 		alSourcei(source, AL_BUFFER, buffer);
+		alSourcei(explodeSource, AL_BUFFER, explodeBuffer);
 
 		DWORD threadID;
 		CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)NetLoop, NULL, 0, &threadID);
@@ -405,7 +429,9 @@ public:
 	~Game()
 	{
 		alDeleteSources(1, &source);
+		alDeleteSources(1, &explodeSource);
 		alDeleteBuffers(1, &buffer);
+		alDeleteSources(1, &explodeBuffer);
 		device = alcGetContextsDevice(context);
 		alcMakeContextCurrent(NULL);
 		alcDestroyContext(context);
@@ -445,7 +471,7 @@ public:
 	}
 	void Init() override
 	{
-		window = CreateRenderWindow("AZ", 960, 540, 1 / 60); // Create a new render window.
+		window = CreateRenderWindow("AZ", 960, 540, GetVSync() ); // Create a new render window.
 		diffuse = new Shader("Data/Vertex.shader", "Data/Frag.shader"); // Load diffuse shader from file.
 		Matrix4& ortho = Matrix4::Orthographic(-16, 16, -9, 9, -1, 1); // Make orthographic matrix.
 	
@@ -459,6 +485,8 @@ public:
 		renderer = new BatchRenderer2D();
 		missleTexture = new Texture("Data/textures/Missle.png");
 		missle = new Sprite(-6.0f, 0.0f, 0.8f, 1.0f, missleTexture);
+
+		deadTexture = new Texture("Data/textures/neutral_256x256.png");
 
 		bulletTx = new Texture("Data/textures/Bullet.png");
 
@@ -512,10 +540,19 @@ public:
 		}
 		now = m_Watcher->Elapsed();
 
-		for (BulletData* bullet : bullets)
+		for (int i = 0; i < bullets.size(); i++)
 		{
-			bullet->lastPos = bullet->position;
-			bullet->Update();
+			if (now > bullets[i]->timer)
+			{
+				alSourceRewind(explodeSource);
+				alSourcePlay(explodeSource);
+				bullets.erase(bullets.begin() + i);
+			}
+			else
+			{
+				bullets[i]->lastPos = bullets[i]->position;
+				bullets[i]->Update(delta);
+			}
 		}
 
 		Vector3 pos = player->GetPosition();
@@ -532,35 +569,7 @@ public:
 		rotation.y = cos(theta);
 		rotation.z = 0;
 
-		if (window->IsKeyPressed(GLFW_KEY_W) && !isColidiing)
-		{
-			pos += rotation * 0.1f;
-			pos.z = 0;
-		}
-		else if (window->IsKeyPressed(GLFW_KEY_S) && !isColidiing)
-		{
-			pos -= rotation * 0.1f;
-			pos.z = 0;
-		}
-
-		if (window->IsKeyPressed(GLFW_KEY_A) && !isColidiing)
-		{
-			angle -= speed * 5.0f;
-			if (angle <= 0)
-			{
-				angle = 360;
-			}
-		}
-		else if (window->IsKeyPressed(GLFW_KEY_D) && !isColidiing)
-		{
-			angle += speed * 5.0f;
-			if (angle >= 360)
-			{
-				angle = 0;
-			}
-		}
-		
-		if (window->IsKeyPressed(GLFW_KEY_SPACE) && now > nextShoot)
+		if (window->IsKeyPressed(GLFW_KEY_SPACE) && now > nextShoot && !isDead)
 		{
 			alSourceRewind(source);
 			alSourcePlay(source);
@@ -568,16 +577,70 @@ public:
 
 			if (isConnected)
 			{
-				SendBulletPos(pos.x, pos.y);
+				Vector3 spawnpos = pos;
+				spawnpos += rotation * 1.32f;
+
+				SendBulletPos(spawnpos.x, spawnpos.y);
 			}
 			else
 			{
-				BulletData* data = new BulletData(pos, angle);
+				Vector3 spawnpos = pos;
+				spawnpos += rotation * 1.32f;
+
+				BulletData* data = new BulletData(spawnpos, angle, now + 6);
 				bullets.push_back(data);
 			}
 		}
 
+		if (window->IsKeyPressed(GLFW_KEY_W) && !isColidiing && !isDead)
+		{
+			pos += rotation * 0.075f;
+			pos.z = 0;
+		}
+		else if (window->IsKeyPressed(GLFW_KEY_S) && !isColidiing && !isDead)
+		{
+			pos -= rotation * 0.075f;
+			pos.z = 0;
+		}
+
+		if (window->IsKeyPressed(GLFW_KEY_A) && !isColidiing && !isDead)
+		{
+			angle -= 1.35f;
+			if (angle <= 0)
+			{
+				angle = 360;
+			}
+		}
+		else if (window->IsKeyPressed(GLFW_KEY_D) && !isColidiing && !isDead)
+		{
+			angle += 1.35f;
+			if (angle >= 360)
+			{
+				angle = 0;
+			}
+		}
+
 		player->SetPosition(pos);
+
+		for (int i = 0; i < bullets.size(); i++)
+		{
+			if (RectangleCircle(bullets[i]->object, bullets[i]->radius, player))
+			{
+				player->SetTexture(deadTexture);
+
+				bullets[i]->timer = 0;
+				isDead = true;
+			}
+
+			for (Renderable2D* otherPlayer : players->GetRenderables())
+			{
+				if (RectangleCircle(bullets[i]->object, bullets[i]->radius, otherPlayer))
+				{
+					otherPlayer->SetTexture(deadTexture);
+					bullets[i]->timer = 0;
+				}
+			}
+		}
 
 		for (Renderable2D* obj : foreground->GetRenderables())
 		{
@@ -628,7 +691,7 @@ public:
 				if (value->lastpos != captured)
 				{
 					Vector2 subtract = captured - value->lastpos;
-					Vector2 multiply = subtract.Multiply((now - last) / speed);
+					Vector2 multiply = subtract.Multiply((now - last) / 0.1f);
 					Vector2 lerp = value->lastpos + multiply;
 					value->object->SetPosition(lerp);
 

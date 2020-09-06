@@ -44,7 +44,10 @@ namespace Augiwne { namespace Graphics {
 		m_Shader->Enable();
 		m_Renderer->Begin();
 		for (const Renderable2D* renderable : m_Renderables)
-			renderable->Submit(m_Renderer);
+		{
+			if (renderable != nullptr)
+				renderable->Submit(m_Renderer);
+		}
 		m_Renderer->End();
 		m_Renderer->Flush();
 	}
