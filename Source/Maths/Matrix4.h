@@ -26,6 +26,7 @@ namespace Augiwne { namespace Maths {
 		static Matrix4 Perspective(float fov, float aspectRatio, float near, float far);
 
 		static Matrix4 Translate(const Vector3& translation);
+		static Matrix4 Translate(const Vector2& translation);
 		static Matrix4 Rotate(float angle, const Vector3& axis);
 		static Matrix4 Scale(const Vector3& scale);
 

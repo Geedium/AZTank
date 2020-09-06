@@ -22,10 +22,8 @@
     <ClInclude Include="Source\Graphics\label.h" />
     <ClInclude Include="Source\Entities\Bullet.h" />
     <ClInclude Include="Source\Entities\Entity.h" />
-    <ClInclude Include="Host.h" />
     <ClInclude Include="Source\Graphics\Quaternion.h" />
     <ClInclude Include="Source\Network\Client.h" />
-    <ClInclude Include="Source\Graphics\Camera.h" />
     <ClInclude Include="Source\Augiwne.h" />
     <ClInclude Include="Source\Graphics\buffers\Buffer.h" />
     <ClInclude Include="Source\Graphics\buffers\IndexBuffer.h" />
@@ -52,15 +50,13 @@
     <ClInclude Include="Source\Utilities\Image.h" />
     <ClInclude Include="Source\Utilities\StopWatch.h" />
     <ClInclude Include="Source\Utilities\Timestep.h" />
-    <ClInclude Include="Transform.h" />
+    <ClInclude Include="src\graphics\camera.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Source\Graphics\label.cpp" />
     <ClCompile Include="Source\Entities\Bullet.cpp" />
-    <ClCompile Include="Host.cpp" />
     <ClCompile Include="Source\Graphics\Quaternion.cpp" />
     <ClCompile Include="Source\Network\Client.cpp" />
-    <ClCompile Include="Source\Graphics\Camera.cpp" />
     <ClCompile Include="Source\Game.cpp" />
     <ClCompile Include="Source\Graphics\buffers\Buffer.cpp" />
     <ClCompile Include="Source\Graphics\buffers\IndexBuffer.cpp" />
@@ -79,6 +75,7 @@
     <ClCompile Include="Source\Maths\Matrix4.cpp" />
     <ClCompile Include="Source\Maths\Vector2.cpp" />
     <ClCompile Include="Source\Maths\Vector3.cpp" />
+    <ClCompile Include="src\graphics\camera.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{08BA52D5-0F45-4746-ABF9-3E6056D4028A}</ProjectGuid>

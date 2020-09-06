@@ -52,6 +52,13 @@ namespace Augiwne { namespace Maths {
 		result.elements[2 + 3 * 4] = translation.z;
 		return result;
 	}
+	Matrix4 Matrix4::Translate(const Vector2& translation)
+	{
+		Matrix4 result(1.0f);
+		result.elements[0 + 3 * 4] = translation.x;
+		result.elements[1 + 3 * 4] = translation.y;
+		return result;
+	}
 	Matrix4 Matrix4::Rotate(float angle, const Vector3& axis)
 	{
 		Matrix4 result(1.0f);

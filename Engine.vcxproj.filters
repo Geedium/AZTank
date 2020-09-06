@@ -67,9 +67,6 @@
     <ClCompile Include="Source\Graphics\Window.cpp">
       <Filter>Source Files\Graphics</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Graphics\Camera.cpp">
-      <Filter>Source Files\Graphics</Filter>
-    </ClCompile>
     <ClCompile Include="Source\Game.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -124,9 +121,6 @@
     <ClCompile Include="Source\Network\Client.cpp">
       <Filter>Source Files\Network</Filter>
     </ClCompile>
-    <ClCompile Include="Host.cpp">
-      <Filter>Source Files\Network</Filter>
-    </ClCompile>
     <ClCompile Include="Source\Graphics\Quaternion.cpp">
       <Filter>Source Files\Graphics</Filter>
     </ClCompile>
@@ -136,6 +130,7 @@
     <ClCompile Include="Source\Graphics\label.cpp">
       <Filter>Source Files\Graphics\Renderables</Filter>
     </ClCompile>
+    <ClCompile Include="src\graphics\camera.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\Utilities\File.h">
@@ -167,9 +162,6 @@
     </ClInclude>
     <ClInclude Include="Source\Augiwne.h">
       <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\Graphics\Camera.h">
-      <Filter>Header Files\Graphics</Filter>
     </ClInclude>
     <ClInclude Include="Source\Utilities\Image.h">
       <Filter>Header Files\Utilities</Filter>
@@ -222,9 +214,6 @@
     <ClInclude Include="Source\Network\Client.h">
       <Filter>Header Files\Network</Filter>
     </ClInclude>
-    <ClInclude Include="Host.h">
-      <Filter>Header Files\Network</Filter>
-    </ClInclude>
     <ClInclude Include="Source\Graphics\Quaternion.h">
       <Filter>Header Files\Graphics</Filter>
     </ClInclude>
@@ -234,11 +223,9 @@
     <ClInclude Include="Source\Entities\Entity.h">
       <Filter>Header Files\Entities</Filter>
     </ClInclude>
-    <ClInclude Include="Transform.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Source\Graphics\label.h">
       <Filter>Header Files\Graphics\Renderables</Filter>
     </ClInclude>
+    <ClInclude Include="src\graphics\camera.h" />
   </ItemGroup>
 </Project>

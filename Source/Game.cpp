@@ -7,6 +7,8 @@
 #include <Graphics/Quaternion.h>
 #include <Augiwne.h>
 
+#include <graphics/camera.h>
+
 using namespace Augiwne;
 using namespace Graphics;
 
@@ -306,6 +308,7 @@ class Game : public Augiwne
 {
 private:
 	Window* window; // Render window.
+	Camera* camera;
 private:
 	Layer* ground; // Background rendering layer.
 	Layer* foreground; // Foreground rendering layer.
@@ -381,6 +384,8 @@ public:
 public:
 	Game()
 	{
+		//AudioManager audioManager;
+
 		device = alcOpenDevice(NULL);
 		if (!device)
 		{
@@ -481,6 +486,9 @@ public:
 	{
 		window = CreateRenderWindow("AZ", 960, 540, GetVSync() ); // Create a new render window.
 		diffuse = new Shader("Data/Vertex.shader", "Data/Frag.shader"); // Load diffuse shader from file.
+
+		camera = new Camera(-16, 16, -9, 9, -1, 1);
+
 		Matrix4& ortho = Matrix4::Orthographic(-16, 16, -9, 9, -1, 1); // Make orthographic matrix.
 	
 		backgroundTexture = new Texture("Data/textures/Background.png"); // Load background texture from file.
@@ -625,35 +633,44 @@ public:
 			}
 		}
 
-		if (window->IsKeyPressed(GLFW_KEY_W) && !isColidiing && !isDead)
-		{
-			pos += rotation * 0.075f;
-			pos.z = 0;
-		}
-		else if (window->IsKeyPressed(GLFW_KEY_S) && !isColidiing && !isDead)
-		{
-			pos -= rotation * 0.075f;
-			pos.z = 0;
-		}
 
-		if (window->IsKeyPressed(GLFW_KEY_A) && !isColidiing && !isDead)
+		if (!isDead)
 		{
-			angle -= 1.35f;
-			if (angle <= 0)
+			if (window->IsKeyPressed(GLFW_KEY_W) && !isColidiing)
 			{
-				angle = 360;
+				pos += rotation * 0.075f;
+				pos.z = 0;
 			}
-		}
-		else if (window->IsKeyPressed(GLFW_KEY_D) && !isColidiing && !isDead)
-		{
-			angle += 1.35f;
-			if (angle >= 360)
+			else if (window->IsKeyPressed(GLFW_KEY_S) && !isColidiing)
 			{
-				angle = 0;
+				pos -= rotation * 0.075f;
+				pos.z = 0;
 			}
-		}
 
-		player->SetPosition(pos);
+			if (window->IsKeyPressed(GLFW_KEY_A) && !isColidiing)
+			{
+				angle -= 1.35f;
+				if (angle <= 0)
+				{
+					angle = 360;
+				}
+			}
+			else if (window->IsKeyPressed(GLFW_KEY_D) && !isColidiing)
+			{
+				angle += 1.35f;
+				if (angle >= 360)
+				{
+					angle = 0;
+				}
+			}
+
+			player->SetPosition(pos);
+		}
+		else
+		{
+			player->SetPosition(Vector2{ -10.6f, 0.0f });
+			isDead = false;
+		}
 
 		for (int i = 0; i < bullets.size(); i++)
 		{
@@ -736,6 +753,7 @@ public:
 
 	void Render() override
 	{
+		/*
 		static double x, y;
 		window->GetMousePosition(x, y);
 
@@ -743,11 +761,10 @@ public:
 		diffuse->SetUniform2f("light_pos",
 			Vector2((float)(x * 32 / window->GetWidth() - 16),
 				(float)(9 - y * 18 / window->GetHeight())));
-		diffuse->SetUniformMatrix4("vw_matrix", Matrix4::Translate(Vector3(
-			-(player->position.x + player->GetSize().x / 2.0f),
-			-(player->position.y + player->GetSize().y / 2.0f),
-			0)
-		));
+		*/
+
+		camera->Follow(player);
+		camera->Apply(*diffuse);
 
 		ground->Render(); // Render background rendering layer.
 		foreground->Render(); // Render foreground rendering layer.
