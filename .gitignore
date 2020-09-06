@@ -19,6 +19,6 @@
 **/Dump
 
 .vs
-bin
-lib
+bin/**
+lib/**
 Dependencies
