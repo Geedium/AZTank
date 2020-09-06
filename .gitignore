@@ -9,9 +9,6 @@
 *.lib
 *.tlog
 *.sln
-
-vendor/**
-
 *.Build.CppClean
 *.vcxproj.FileListAbsolute
 *.applocal
@@ -19,9 +16,14 @@ vendor/**
 *.res
 *.cache
 
+bin/*
+!bin/sounds
+!bin/sprites
+
+**/vendor/**
+
 **/Dump
 
 .vs
-bin/**
 lib/**
 Dependencies
