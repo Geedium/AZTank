@@ -9,6 +9,7 @@
 #include <Augiwne.h>
 
 #include <graphics/camera.h>
+#include <node.h>
 
 using namespace Augiwne;
 using namespace Graphics;
@@ -123,7 +124,7 @@ public:
 	BulletData(const Vector3 pos, const float angle, const float time)
 		: position(pos), angle(angle), lastPos(0,0,0), timer(time)
 	{
-		object = new Sprite(pos.x, pos.y, 0.32f, 0.32f, bulletTx);
+		object = new Sprite(pos.x, pos.y, 0.16f, 0.16f, bulletTx);
 
 		float left = object->GetPosition().x;
 		float right = left + object->GetSize().x;
@@ -155,6 +156,7 @@ std::map<int, PlayerData*> player_map;
 
 Texture* playerTexture;
 ENetPeer* peer;
+bool isDead;
 
 void SendUFPacket(ENetPeer* peer, const char* data)
 {
@@ -332,12 +334,12 @@ private:
 	Texture* expo2;
 	Texture* expo3;
 	Texture* expo4;
+	Node* A[32][18];
 private:
 	float speed = 0.35f;
 	float animFrameDelay = 0;
 	bool darkMode;
 	bool moved;
-	bool isDead;
 	int sequence;
 private:
 	float angle = 0; // Rotation angle of local player. *tmp
@@ -385,6 +387,15 @@ public:
 public:
 	Game()
 	{
+		for (int x = 0; x < 32; x++)
+		{
+			for (int y = 0; y < 18; y++)
+			{
+				A[x][y] = new Node();
+				std::cout << "[A*] new Node created." << std::endl;
+			}
+		}
+
 		//AudioManager audioManager;
 
 		device = alcOpenDevice(NULL);
@@ -442,6 +453,14 @@ public:
 	}
 	~Game()
 	{
+		for (int x = 0; x < 32; x++)
+		{
+			for (int y = 0; y < 18; y++)
+			{
+				delete A[x][y];
+			}
+		}
+
 		alDeleteSources(1, &source);
 		alDeleteSources(1, &explodeSource);
 		alDeleteBuffers(1, &buffer);
@@ -491,7 +510,7 @@ public:
 		camera = new Camera(-16, 16, -9, 9, -1, 1);
 
 		Matrix4& ortho = Matrix4::Orthographic(-16, 16, -9, 9, -1, 1); // Make orthographic matrix.
-	
+
 		backgroundTexture = new Texture("Data/textures/Background.png"); // Load background texture from file.
 		background = new Sprite(-16, -9, 32, 18, backgroundTexture); // Create a new background sprite.
 
@@ -520,33 +539,45 @@ public:
 		bulletsLayer = new Layer(new BatchRenderer2D(), diffuse, ortho);
 
 		playerTexture = new Texture("Data/textures/Blue_Tank.png");
-		player = new Sprite(-10.6f, 0, 0.95f, 0.95f, playerTexture);
+		player = new Sprite(-10.6f, 0, 0.5f, 0.5f, playerTexture);
 	
 		Texture* wallTexture = new Texture("Data/textures/Wall.png");
 
-		for (float x = -16.0f; x < 16.0f; x += 1.0f)
+		int nX = 0;
+		int nY = 0;
+
+		for (int i = 0; i < 32; i++)
 		{
-			for (float y = -9.0f; y < 9.0f; y += 1.0f)
+			float x = (i * 1.0f) - 16;
+
+			for (int j = 0; j < 18; j++)
 			{
-				// Bottom Left to Right
-				if (
-					(y == -9.0f) ||
-					(y == 8.0f) ||
-					(x == -16.0f) ||
-					(x == 15.0f)
-					)
+				float y = (j * 1.0f) - 9;
+
+				bool g = j % 2 == 0 && i % 2 == 0;
+
+				if (g || i == 0 || i == 31 || j == 0 || j == 17)
 				{
 					foreground->Add(new Sprite(x, y, 1.0f, 1.0f, wallTexture));
-				}
-				else {
-					auto p = (int)x % 1 == 0;
-					auto j = (int)y % 5 != 1;
-					if (p > rand() % 4 && j > rand() % 4 )
-					{
-						foreground->Add(new Sprite(x, y, 1.0f, 1.0f, wallTexture));
-					}
+					A[i][j]->isObstacle = true;
 				}
 			}
+		}
+
+		for (int x = 0; x < 32; x++)
+		{
+			for (int y = 0; y < 18; y++)
+			{
+				if (A[x][y]->isObstacle)
+				{
+					std::cout << "X ";
+				}
+				else {
+					std::cout << "- ";
+				}
+			}
+
+			std::cout << std::endl;
 		}
 	}
 
@@ -687,6 +718,7 @@ public:
 			{
 				if (RectangleCircle(bullets[i]->object, bullets[i]->radius, otherPlayer))
 				{
+
 					otherPlayer->SetTexture(deadTexture);
 					bullets[i]->timer = 0;
 				}
@@ -801,6 +833,7 @@ public:
 			missle->position.y - 0.55f,
 			missle->position.z
 		)));
+
 		renderer->Submit(explosion);
 		renderer->Pop();
 
