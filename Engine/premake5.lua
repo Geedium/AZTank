@@ -19,7 +19,7 @@ project "Engine"
         "%{wks.location}/vendor/libogg/include",
         "%{wks.location}/vendor/OpenAL/include",
         "%{wks.location}/vendor/enet-1.3.15/include",
-        "%{wks.location}/vendor/freetype-2.10.2/include"
+        "%{wks.location}/vendor/freetype/include"
     }
 
     libdirs {
@@ -30,7 +30,7 @@ project "Engine"
         "%{wks.location}/vendor/libogg/bin",
         "%{wks.location}/vendor/OpenAL/libs/Win32",
         "%{wks.location}/vendor/enet-1.3.15",
-        "%{wks.location}/vendor/freetype-2.10.2/objs/Win32/Release"
+        "%{wks.location}/vendor/freetype/objs/Win32/Release"
     }
 
     links {

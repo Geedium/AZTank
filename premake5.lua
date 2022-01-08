@@ -1,3 +1,5 @@
+---@diagnostic disable: undefined-global, lowercase-global
+
 workspace "AZ"
     startproject "Engine"
     configurations { "Release" }
@@ -12,5 +14,6 @@ workspace "AZ"
 
 output_dir = "%{cfg.system}_%{cfg.buildcfg}-%{cfg.architecture}"
 
+include "vendor"
 include "Server"
 include "Engine"
